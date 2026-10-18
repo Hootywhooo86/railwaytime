@@ -1,0 +1,9 @@
+<resources>
+    <color name="bg">#0B0B16</color>
+    <color name="panel">#141428</color>
+    <color name="teal">#2DD4BF</color>
+    <color name="orange">#FF9F1C</color>
+    <color name="pink">#FF5D8F</color>
+    <color name="ink">#F4F1FF</color>
+    <color name="muted">#9A97B8</color>
+</resources>

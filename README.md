@@ -22,6 +22,37 @@ Widget-first means the home-screen widget is the product. Any full app behind it
 - **Supabase backend.** The shared family event-feed SQL lives in [`supabase/family-feed.sql`](supabase/family-feed.sql) — run once in Supabase → SQL Editor. Same block as 128bitPlay's setup; keep them in step.
 - **Monetization default:** 128bit Pro bundle subscription across all apps (not decided — Daniel's call).
 
+## Android app (CN crew board widget)
+
+`android/` is a native Android app + home-screen widget for CN crew. It shows:
+
+- **Railtime clock**: local time plus an offset you set. By default it drops 1 hour at 02:00 on Nov 1, 2026 (the railway falls back; Alberta doesn't). Local time zone, offsets and the switch date are all in Settings.
+- **Board position** and who's ahead: available (`A0`), going spare (`** …`, those still leave ahead of you) and held (`HT`).
+- **Your rest** ("Rested 18 22:50 (in 7h06)") and the **next person off rest**.
+- **Your likely train**: walks the pool lineup in order. Each train is ordered 2 h before planned (configurable) and goes to the first turn free by then; if you're still on rest it passes you. It's an estimate.
+- **ON DUTY / OFF DUTY switch** on the widget. On duty: nothing is fetched from CN and board info is hidden, only the clocks show. Off duty: refreshes every 10 minutes.
+
+### How the CN data gets in
+
+You sign in yourself inside the app ("Sign in / refresh from IVRM"): Microsoft sign-in + Authenticator as usual. The app reads the IVRM page once it shows and saves it **on the phone only**. Background refreshes reuse that sign-in in an off-screen WebView. When CN signs you out, the widget says so and background refreshes stop until you sign in again. Your password is never stored and nothing is sent anywhere except CN.
+
+If the board reads wrong, use "Share page text" in the app and send it over so the parser can be fixed.
+
+### Install
+
+Every push builds the APK in GitHub Actions and attaches it to the `app-latest` release:
+https://github.com/hootywhooo86/railwaytime/releases/download/app-latest/railwaytime.apk
+Open that on the phone, allow "install unknown apps" for your browser, install, then long-press the home screen → Widgets → Railway Time.
+
+### Build locally
+
+```
+cd android
+./gradlew :app:testDebugUnitTest :app:assembleDebug
+```
+
+`android/debug.keystore` is a throwaway debug key, committed so every build installs over the last one.
+
 ## Landing page
 
 Pixel-styled coming-soon page at the repo root, live via GitHub Pages: https://hootywhooo86.github.io/railwaytime/
@@ -33,6 +64,8 @@ Still needs a Formspree ID in `index.html` (search `YOUR_FORM_ID`).
 ```
 index.html              # coming-soon landing page (GitHub Pages)
 README.md               # this file
+android/                # Android app + widget (CN board, railtime clock)
+  app/src/main/java/app/railwaytime/core/   # parser, predictor, railtime (pure Kotlin, unit tested)
 supabase/
   family-feed.sql       # shared 128bit family event feed — run once in Supabase
 ```

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView style="@style/Heading" android:layout_marginTop="4dp" android:text="CLOCKS" />
+
+        <TextView style="@style/Label" android:text="Local time zone (blank = phone's)" />
+        <EditText android:id="@+id/set_zone" style="@style/Field" />
+
+        <TextView style="@style/Label" android:text="Railtime offset from local, minutes (before the switch)" />
+        <EditText android:id="@+id/set_offset_before" style="@style/Field" android:inputType="numberSigned" />
+
+        <TextView style="@style/Label" android:text="Switch date/time, local (YYYY-MM-DD HH:MM, blank = never)" />
+        <EditText android:id="@+id/set_switch_at" style="@style/Field" />
+
+        <TextView style="@style/Label" android:text="Railtime offset from local, minutes (after the switch, e.g. -60)" />
+        <EditText android:id="@+id/set_offset_after" style="@style/Field" android:inputType="numberSigned" />
+
+        <TextView style="@style/Label" android:text="IVRM times are in" />
+        <RadioGroup android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+            <RadioButton android:id="@+id/set_board_rail" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Railtime" />
+            <RadioButton android:id="@+id/set_board_local" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Local time" />
+        </RadioGroup>
+
+        <TextView style="@style/Heading" android:text="BOARD" />
+
+        <TextView style="@style/Label" android:text="Ordered this many minutes before the train" />
+        <EditText android:id="@+id/set_call_lead" style="@style/Field" android:inputType="number" />
+
+        <TextView style="@style/Label" android:text="Refresh every (minutes, off duty only)" />
+        <EditText android:id="@+id/set_refresh" style="@style/Field" android:inputType="number" />
+
+        <TextView style="@style/Label" android:text="IVRM address" />
+        <EditText android:id="@+id/set_ivrm" style="@style/Field" android:inputType="textUri" />
+
+        <TextView style="@style/Label" android:text="SharePoint address" />
+        <EditText android:id="@+id/set_sharepoint" style="@style/Field" android:inputType="textUri" />
+
+        <Button
+            android:id="@+id/btn_save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="Save" />
+    </LinearLayout>
+</ScrollView>
