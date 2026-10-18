@@ -7,8 +7,9 @@
     <!-- Exact 10-minute refresh alarm: clock apps get USE_EXACT_ALARM (Android 13+) automatically. -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
-    <!-- Before Android 12 a refresh started while asleep runs as a brief foreground job. -->
+    <!-- Timed refreshes run as a short foreground service so they work while the phone sleeps. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <!-- Lets you exempt the app from battery optimisation so the 10-minute refresh isn't held back. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
@@ -53,6 +54,12 @@
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/rail_widget" />
         </receiver>
+
+        <!-- Runs each timed refresh for a few seconds with a quiet notification (see RefreshService). -->
+        <service
+            android:name=".RefreshService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <receiver android:name=".AlarmReceiver" android:exported="false">
             <intent-filter>

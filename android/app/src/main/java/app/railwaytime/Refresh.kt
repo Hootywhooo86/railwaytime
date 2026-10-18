@@ -5,11 +5,14 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Service
 import android.content.BroadcastReceiver
+import android.content.pm.ServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Handler
+import android.os.IBinder
 import android.os.Message
 import android.view.View
 import android.webkit.WebChromeClient
@@ -39,7 +42,12 @@ import app.railwaytime.core.AppSettings
 import app.railwaytime.core.BoardParser
 import app.railwaytime.core.PageText
 import app.railwaytime.core.RailClock
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -166,7 +174,7 @@ class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             RefreshScheduler.ACTION_REFRESH -> {
-                RefreshScheduler.refreshNow(context)
+                RefreshService.start(context)
                 RefreshScheduler.scheduleNext(context)
             }
             RefreshScheduler.ACTION_RENDER -> RefreshScheduler.ensure(context)
@@ -180,23 +188,26 @@ class AlarmReceiver : BroadcastReceiver() {
     }
 }
 
-class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
-    override suspend fun doWork(): Result {
-        val store = Store(applicationContext)
-        if (store.onDuty) return Result.success()
-        val manual = inputData.getBoolean(RefreshScheduler.KEY_MANUAL, false)
+/** One refresh: load the board and save it, or record why not. Shared by the service and the worker. */
+object Refresher {
+    private const val SIGNED_OUT_RETRY_MS = 30 * 60_000L
+
+    suspend fun run(context: Context, manual: Boolean, via: String) {
+        val store = Store(context)
+        if (store.onDuty) return
         // Signed out: only look again every half hour (or when you tap refresh) until you sign in.
         val signedOutRecently = store.status == Store.Status.SIGN_IN &&
             System.currentTimeMillis() - store.statusAt < SIGNED_OUT_RETRY_MS
-        if (signedOutRecently && !manual) return Result.success()
-
-        val url = store.boardUrl ?: store.settings.ivrmUrl
+        if (signedOutRecently && !manual) {
+            store.log("refresh skipped ($via): signed out, retrying every 30 min")
+            return
+        }
         store.lastAttemptAt = System.currentTimeMillis()
         store.refreshing = true
-        Widget.updateAll(applicationContext)
-        store.log("refresh${if (manual) " (tapped)" else ""}: ${CnWeb.safeUrl(url)}")
+        Widget.updateAll(context)
+        store.log("refresh ($via): ${CnWeb.safeUrl(store.boardUrl ?: store.settings.sharepointUrl)}")
         try {
-            when (val r = IvrmFetcher.fetch(applicationContext, store.boardUrl, store.settings)) {
+            when (val r = IvrmFetcher.fetch(context, store.boardUrl, store.settings)) {
                 is IvrmFetcher.Result.Board -> {
                     store.saveBoard(r.text, r.url)
                     store.log("refresh: board updated")
@@ -212,27 +223,90 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
             }
         } finally {
             store.refreshing = false
-            Widget.updateAll(applicationContext)
+            Widget.updateAll(context)
         }
+    }
+
+    const val CHANNEL = "refresh"
+    const val NOTIFICATION_ID = 10
+
+    /** The quiet notification Android requires while a refresh runs in the foreground. */
+    fun notification(context: Context): Notification {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL, "Board refresh", NotificationManager.IMPORTANCE_MIN).apply {
+                description = "Shown for a few seconds while the crew board refreshes"
+                setShowBadge(false)
+            },
+        )
+        return Notification.Builder(context, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_refresh)
+            .setContentTitle("Checking the crew board…")
+            .setOngoing(true)
+            .build()
+    }
+}
+
+/**
+ * The timed refresh runs as a short foreground service: with the phone asleep, Android cuts
+ * background apps off the network and stalls hidden web pages, but a foreground service gets
+ * both. The exact alarm is what allows it to start from the background. It stops itself when done.
+ */
+class RefreshService : Service() {
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private var job: Job? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val n = Refresher.notification(this)
+        if (Build.VERSION.SDK_INT >= 29) {
+            startForeground(Refresher.NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
+        } else {
+            startForeground(Refresher.NOTIFICATION_ID, n)
+        }
+        if (job?.isActive != true) {
+            job = scope.launch {
+                try {
+                    Refresher.run(this@RefreshService, manual = false, via = "timer")
+                } finally {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                }
+            }
+        }
+        return START_NOT_STICKY
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        scope.cancel()
+        super.onDestroy()
+    }
+
+    companion object {
+        fun start(context: Context) {
+            if (Store(context).onDuty) return
+            runCatching { context.startForegroundService(Intent(context, RefreshService::class.java)) }
+                .onFailure {
+                    // Not allowed right now (e.g. no exact-alarm permission): queue it instead.
+                    Store(context).log("refresh: foreground start refused (${it.javaClass.simpleName}); queued instead")
+                    RefreshScheduler.refreshNow(context)
+                }
+        }
+    }
+}
+
+/** Taps on ⟳ / Refresh now, the watchdog and boot catch-up run here. */
+class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        val manual = inputData.getBoolean(RefreshScheduler.KEY_MANUAL, false)
+        Refresher.run(applicationContext, manual, via = if (manual) "tapped" else "catch-up")
         return Result.success()
     }
 
     /** Only used before Android 12, where expedited work runs as a short foreground job. */
-    override suspend fun getForegroundInfo(): ForegroundInfo {
-        val nm = applicationContext.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Board refresh", NotificationManager.IMPORTANCE_MIN))
-        val n = Notification.Builder(applicationContext, CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat_refresh)
-            .setContentTitle("Refreshing crew board")
-            .build()
-        return ForegroundInfo(NOTIFICATION_ID, n)
-    }
-
-    private companion object {
-        const val SIGNED_OUT_RETRY_MS = 30 * 60_000L
-        const val CHANNEL = "refresh"
-        const val NOTIFICATION_ID = 10
-    }
+    override suspend fun getForegroundInfo(): ForegroundInfo =
+        ForegroundInfo(Refresher.NOTIFICATION_ID, Refresher.notification(applicationContext))
 }
 
 /**
