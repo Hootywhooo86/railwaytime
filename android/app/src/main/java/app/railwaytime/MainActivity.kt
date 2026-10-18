@@ -71,16 +71,21 @@ class MainActivity : Activity() {
 
         val s = Summary.build(this)
         findViewById<TextView>(R.id.status).text = s.updated
-        findViewById<TextView>(R.id.summary).text = listOf(s.board, s.rest, s.nextBack).filter { it.isNotEmpty() }.joinToString("\n")
-        findViewById<TextView>(R.id.train).text = s.train
+        findViewById<TextView>(R.id.summary).text = if (!s.hasBoard) "No board yet" else listOf(
+            "Position ${s.position} · ${s.ahead} ahead (${s.aheadSub})",
+            "${s.beforeYou} likely ordered before you",
+            "Your rest: ${s.rest} (${s.restSub})",
+            "Next off rest: ${s.next} (${s.nextSub})",
+        ).joinToString("\n")
+        findViewById<TextView>(R.id.train).text = "${s.train}\n${s.trainSub}"
 
         val p = s.prediction
         val snapshot = store.snapshot()
         findViewById<TextView>(R.id.order).text = p?.assignments?.joinToString("\n") { a ->
             "%-11s %s  ord %s  → %s".format(
                 a.train.label, DayTime.format(a.train.planned), DayTime.clock(a.orderAt),
-                if (a.isMe) "YOU" else a.who ?: "past you (resting)",
-            )
+                if (a.isMe) "YOU" else a.who ?: "behind you",
+            ) + if (a.lostTurn.isEmpty()) "" else "\n    ${a.lostTurn.joinToString()} resting, lose turn"
         }?.ifEmpty { "No upcoming trains in the pool lineup" } ?: "—"
         findViewById<TextView>(R.id.board).text = snapshot?.board?.joinToString("\n") { e ->
             val status = (if (e.spare) "** " else "") + e.offStatus

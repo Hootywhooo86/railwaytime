@@ -17,16 +17,22 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 
-/** The short lines shown on the widget (and at the top of the app). */
+/** What the widget and the top of the app show, already formatted. */
 data class Summary(
-    val board: String,
-    val rest: String,
-    val nextBack: String,
-    val train: String,
+    val hasBoard: Boolean,
+    val position: String = "—",
+    val ahead: String = "—",
+    val aheadSub: String = "",
+    val beforeYou: String = "—",
+    val rest: String = "—",
+    val restSub: String = "",
+    val next: String = "—",
+    val nextSub: String = "",
+    val train: String = "No board yet",
+    val trainSub: String = "Tap to sign in to IVRM",
     val updated: String,
     val needsAttention: Boolean,
-    val prediction: Prediction?,
-    val now: LocalDateTime,
+    val prediction: Prediction? = null,
 ) {
     companion object {
         private const val STALE_MS = 60 * 60_000L
@@ -36,8 +42,7 @@ data class Summary(
             val settings = store.settings
             val instant = Instant.now()
             val now = RailClock.boardNow(settings, instant)
-            val snapshot = store.snapshot()
-            val p = snapshot?.let { Predictor.predict(it, now, settings.callLeadMin.toLong()) }
+            val p = store.snapshot()?.let { Predictor.predict(it, now, settings.callLeadMin.toLong()) }
 
             val updatedAt = store.fetchedAt.takeIf { it > 0 }?.let {
                 DayTime.clock(LocalDateTime.ofInstant(Instant.ofEpochMilli(it), settings.homeZone))
@@ -46,27 +51,33 @@ data class Summary(
             val updated = when (store.status) {
                 Store.Status.SIGN_IN -> "Signed out of CN · tap to sign in"
                 Store.Status.ERROR -> "Couldn't refresh · last ${updatedAt ?: "never"}"
-                else -> if (updatedAt == null) "Tap to sign in to IVRM" else "Updated $updatedAt" + if (stale) " · old" else ""
+                else -> if (updatedAt == null) "Not loaded yet" else "Updated $updatedAt" + if (stale) " · old" else ""
             }
             val attention = store.status == Store.Status.SIGN_IN || store.status == Store.Status.ERROR || updatedAt == null || stale
+            if (p == null) return Summary(hasBoard = false, updated = updated, needsAttention = attention)
 
-            if (p == null) return Summary("No board yet", "", "", "", updated, attention, null, now)
-
-            val board = buildString {
-                append("POS ${p.myPosition?.let { "%02d".format(it) } ?: "?"} · ${p.ahead.size} ahead")
-                append(" (${p.availableAhead} A0 · ${p.spareAhead} spare")
-                if (p.heldAhead > 0) append(" · ${p.heldAhead} HT")
-                append(")")
-            }
-            val rest = p.myRestUntil?.let {
-                if (it.isAfter(now)) "Rested ${DayTime.format(it)} (${DayTime.until(now, it)})" else "Rested ✓ since ${DayTime.format(it)}"
-            } ?: "Rested ✓"
-            val nextBack = p.nextBack?.let { "Next off rest: ${it.init} ${DayTime.format(it.returnAt!!)} (${DayTime.until(now, it.returnAt)})" }
-                ?: "Next off rest: nobody ahead on rest"
-            val train = p.myTrain?.let {
-                "Likely ${it.train.label} · ${DayTime.format(it.train.planned)} · order ~${DayTime.clock(it.orderAt)}"
-            } ?: "Past the lineup · ${p.trainsBeyondLineup} more train(s) to you"
-            return Summary(board, rest, nextBack, train, updated, attention, p, now)
+            fun whenSub(t: LocalDateTime) = "${DayTime.dayWord(now, t)} · ${DayTime.until(now, t)}"
+            val rest = p.myRestUntil?.takeIf { it.isAfter(now) }
+            val next = p.nextBack
+            val mine = p.myTrain
+            return Summary(
+                hasBoard = true,
+                position = p.myPosition?.let { "%02d".format(it) } ?: "?",
+                ahead = p.ahead.size.toString(),
+                aheadSub = "${p.availableAhead} avail · ${p.restingAhead} resting",
+                beforeYou = if (mine != null) p.goBeforeYou.toString() else "${p.goBeforeYou}+",
+                rest = rest?.let { DayTime.clock(it) } ?: "Rested",
+                restSub = rest?.let { whenSub(it) } ?: "ready to go",
+                next = next?.let { "${it.init} · ${DayTime.clock(it.returnAt!!)}" } ?: "—",
+                nextSub = next?.let { whenSub(it.returnAt!!) } ?: "nobody ahead resting",
+                train = mine?.let { "${it.train.symbol} · ${DayTime.clock(it.train.planned)}" } ?: "Past the lineup",
+                trainSub = mine?.let {
+                    "${DayTime.dayWord(now, it.train.planned)} · ordered ~${DayTime.clock(it.orderAt)} · ${DayTime.until(now, it.orderAt)}"
+                } ?: "${p.trainsBeyondLineup} more train(s) needed to reach you",
+                updated = updated,
+                needsAttention = attention,
+                prediction = p,
+            )
         }
     }
 }
@@ -108,7 +119,7 @@ object Widget {
 
         v.setString(R.id.rail_clock, "setTimeZone", RailClock.railZoneId(settings, Instant.now()))
         v.setString(R.id.local_clock, "setTimeZone", settings.homeZone.id)
-        v.setTextViewText(R.id.local_label, "LOCAL " + settings.homeZone.shortName())
+        v.setTextViewText(R.id.local_label, "LOCAL · " + settings.homeZone.shortName())
 
         val open = PendingIntent.getActivity(
             context, 0, Intent(context, MainActivity::class.java),
@@ -134,13 +145,19 @@ object Widget {
         v.setInt(R.id.duty_button, "setBackgroundResource", R.drawable.duty_off)
         v.setViewVisibility(R.id.board_block, View.VISIBLE)
         v.setViewVisibility(R.id.on_duty_note, View.GONE)
-        v.setTextViewText(R.id.line_board, s.board)
-        v.setTextViewText(R.id.line_rest, s.rest)
-        v.setTextViewText(R.id.line_next, s.nextBack)
-        v.setTextViewText(R.id.line_train, s.train)
+        v.setTextViewText(R.id.v_position, s.position)
+        v.setTextViewText(R.id.v_ahead, s.ahead)
+        v.setTextViewText(R.id.v_ahead_sub, s.aheadSub)
+        v.setTextViewText(R.id.v_before, s.beforeYou)
+        v.setTextViewText(R.id.v_rest, s.rest)
+        v.setTextViewText(R.id.v_rest_sub, s.restSub)
+        v.setTextViewText(R.id.v_next, s.next)
+        v.setTextViewText(R.id.v_next_sub, s.nextSub)
+        v.setTextViewText(R.id.v_train, s.train)
+        v.setTextViewText(R.id.v_train_sub, s.trainSub)
+        v.setTextColor(R.id.v_train, if (s.prediction?.myTrain != null) ORANGE else Color.WHITE)
         v.setTextViewText(R.id.line_updated, s.updated)
         v.setTextColor(R.id.line_updated, if (s.needsAttention) PINK else MUTED)
-        v.setTextColor(R.id.line_train, if (s.prediction?.myTrain != null) ORANGE else Color.WHITE)
         return v
     }
 

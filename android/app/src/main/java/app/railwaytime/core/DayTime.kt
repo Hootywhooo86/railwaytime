@@ -39,6 +39,15 @@ object DayTime {
 
     fun clock(t: LocalDateTime): String = t.format(CLOCK)
 
+    /** "today", "tmrw", "yesterday" or e.g. "Tue 20", relative to [now]'s date. */
+    fun dayWord(now: LocalDateTime, t: LocalDateTime): String =
+        when (java.time.temporal.ChronoUnit.DAYS.between(now.toLocalDate(), t.toLocalDate())) {
+            0L -> "today"
+            1L -> "tmrw"
+            -1L -> "yesterday"
+            else -> t.format(DateTimeFormatter.ofPattern("EEE d"))
+        }
+
     /** "in 7h06", "in 12m", "now". */
     fun until(now: LocalDateTime, t: LocalDateTime): String {
         val mins = java.time.Duration.between(now, t).toMinutes()

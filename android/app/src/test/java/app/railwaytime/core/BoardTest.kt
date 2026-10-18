@@ -97,28 +97,64 @@ class BoardTest {
         assertEquals(7, p.ahead.size)
         assertEquals(3, p.availableAhead)
         assertEquals(4, p.spareAhead)
-        assertEquals(7, p.leavingAhead)
-        // DHT303B was ordered at 14:00, so it's already crewed; the next 7 trains go to the 7 ahead.
-        assertEquals(
-            listOf("SS", "DF", "JDL", "JDS", "R W", "DML", "JB", "YOU"),
-            p.assignments.map { it.who },
-        )
-        assertEquals("U72551", p.myTrain!!.train.symbol)
-        assertEquals(LocalDateTime.of(2026, 10, 19, 7, 30), p.myTrain!!.orderAt)
+        // DHT303B was ordered at 14:00, so it's already crewed.
+        // U76151 (ordered 16:30): SS and DF (** HT, resting) are passed and lose their turn; JDL takes it.
+        // JDS (** HT) is back 16:30, in time for SK79151. G84551 (ordered 19:00): JB is resting and
+        // loses the turn, you're resting until 22:50, so it goes behind you. G81741 is yours.
+        assertEquals(listOf("JDL", "JDS", "R W", "DML", null, "YOU"), p.assignments.map { it.who })
+        assertEquals(listOf("SS", "DF"), p.assignments.first().lostTurn)
+        assertEquals(listOf("JB"), p.assignments[4].lostTurn)
+        assertEquals(4, p.goBeforeYou)
+        assertEquals("G81741", p.myTrain!!.train.symbol)
+        assertEquals(LocalDateTime.of(2026, 10, 18, 23, 46), p.myTrain!!.orderAt)
     }
 
-    @Test fun heldTurnWaitsAndRestedYouGetSkipped() {
+    @Test fun heldTurnKeepsItsPlace() {
         val text = tabbed
             .replace("01\tSS\t\t** HT", "01\tSS\t\tHT")
             .replace("Rest until\t18 22:50", "Rest until\t19 09:00")
         val p = Predictor.predict(BoardParser.parse(text, ref), now, 120)
-        assertEquals(1, p.heldAhead)
-        // SS is held until 19 05:59, so SS isn't free until then.
-        assertEquals("DF", p.assignments.first().who)
+        // SS holds the turn: passed while resting but not dropped. DF (**) is dropped.
+        assertEquals("JDL", p.assignments.first().who)
+        assertEquals(listOf("DF"), p.assignments.first().lostTurn)
+        // Back at 19 05:59, SS is still ahead of you and takes U71151 (ordered 06:01).
         assertTrue(p.assignments.any { it.who == "SS" && it.train.symbol == "U71151" })
-        // You are rested 19 09:00: U72551, M31151 and S71751 are ordered before that and pass you by.
-        assertEquals(3, p.assignments.count { it.who == null })
+        // You're rested 19 09:00, so trains ordered before that go past you.
         assertEquals("G80951", p.myTrain!!.train.symbol)
+    }
+
+    /** The live board from the app on Oct 18 at 16:55. */
+    @Test fun liveBoardAt1655() {
+        val live = """
+            Sunday, October 18, 2026 6:55 PM ET
+            Rest until	18 22:50
+            Board Position	08
+            Additional Board Information
+            Pos	Init	Rest	Off St	Return
+            01	SS		** HT	19 0559
+            02	DF		** HT	19 0559
+            03	JDL		A0
+            04	JDS		A0
+            05	R W		A0
+            06	DML		A0
+            07	JB		** HT	19 0559
+            Pool Lineup
+            U76151 18	Planned 18 19:30
+            A41751 18	Planned 18 19:45
+            Q10131 15	Planned 18 20:45
+            SK79151 18	Planned 18 21:45
+            G84551 17	Planned 19 01:00
+            G81741 18	Planned 19 01:46
+            U71151 18	Planned 19 08:01
+            U72551 19	Planned 19 09:30
+        """.trimIndent()
+        val p = Predictor.predict(BoardParser.parse(live, ref), LocalDateTime.of(2026, 10, 18, 16, 55), 120)
+        assertEquals(listOf("JDL", "JDS", "R W", "DML", "YOU"), p.assignments.map { it.who })
+        assertEquals(listOf("SS", "DF"), p.assignments.first().lostTurn)
+        assertEquals(4, p.goBeforeYou)
+        assertEquals("G84551", p.myTrain!!.train.symbol)
+        assertEquals(LocalDateTime.of(2026, 10, 18, 23, 0), p.myTrain!!.orderAt)
+        assertEquals("SS", p.nextBack!!.init)
     }
 
     @Test fun nextBackIsEarliestHeldReturn() {

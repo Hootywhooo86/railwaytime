@@ -78,7 +78,7 @@ class OcrTest {
         assertEquals(10, s.trains.size)
 
         val p = Predictor.predict(s, LocalDateTime.of(2026, 10, 18, 15, 44))
-        assertEquals("U72551", p.myTrain!!.train.symbol)
+        assertEquals("G81741", p.myTrain!!.train.symbol)
     }
 }
 
@@ -117,6 +117,6 @@ class RealScreenshotTest {
         assertEquals(3, p.availableAhead)
         assertEquals(4, p.spareAhead)
         assertEquals("JDS", p.nextBack!!.init)
-        assertEquals("U72551", p.myTrain!!.train.symbol)
+        assertEquals("G81741", p.myTrain!!.train.symbol)
     }
 }
