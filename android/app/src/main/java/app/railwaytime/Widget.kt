@@ -64,7 +64,11 @@ data class Summary(
                 hasBoard = true,
                 position = p.myPosition?.let { "%02d".format(it) } ?: "?",
                 ahead = p.ahead.size.toString(),
-                aheadSub = "${p.availableAhead} avail · ${p.restingAhead} resting",
+                aheadSub = listOfNotNull(
+                    "${p.availableAhead} avail",
+                    p.heldAhead.takeIf { it > 0 }?.let { "$it HT" },
+                    p.spareAhead.takeIf { it > 0 }?.let { "$it spare" },
+                ).joinToString(" · "),
                 beforeYou = if (mine != null) p.goBeforeYou.toString() else "${p.goBeforeYou}+",
                 rest = rest?.let { DayTime.clock(it) } ?: "Rested",
                 restSub = rest?.let { whenSub(it) } ?: "ready to go",

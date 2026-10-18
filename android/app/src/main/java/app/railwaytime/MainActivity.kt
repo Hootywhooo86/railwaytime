@@ -85,10 +85,10 @@ class MainActivity : Activity() {
             "%-11s %s  ord %s  → %s".format(
                 a.train.label, DayTime.format(a.train.planned), DayTime.clock(a.orderAt),
                 if (a.isMe) "YOU" else a.who ?: "behind you",
-            ) + if (a.lostTurn.isEmpty()) "" else "\n    ${a.lostTurn.joinToString()} resting, lose turn"
+            )
         }?.ifEmpty { "No upcoming trains in the pool lineup" } ?: "—"
         findViewById<TextView>(R.id.board).text = snapshot?.board?.joinToString("\n") { e ->
-            val status = (if (e.spare) "** " else "") + e.offStatus
+            val status = if (e.spare) "spare" else e.offStatus
             val back = e.returnAt?.let { "back ${DayTime.format(it)}" } ?: ""
             "%02d  %-5s %-6s %s".format(e.pos, e.init, status, back).trimEnd()
         }?.ifEmpty { "No board rows found" } ?: "—"
