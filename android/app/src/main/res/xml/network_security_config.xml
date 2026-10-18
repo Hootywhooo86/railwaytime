@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ivrm.cn.ca sends its own certificate but leaves out the intermediate that links it to a
+  trusted root. Chrome fetches the missing piece itself; apps don't. For CN sites only, also
+  accept Sectigo's "Public Server Authentication CA OV R36" intermediate (valid to 2036,
+  issued by Sectigo's public root R46). Everything else uses the normal system trust.
+-->
+<network-security-config>
+    <domain-config>
+        <domain includeSubdomains="true">cn.ca</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/sectigo_ov_r36" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

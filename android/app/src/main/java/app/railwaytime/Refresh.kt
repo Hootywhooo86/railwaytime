@@ -8,7 +8,9 @@ import android.content.Intent
 import android.os.SystemClock
 import android.webkit.ClientCertRequest
 import android.webkit.CookieManager
+import android.net.http.SslError
 import android.webkit.HttpAuthHandler
+import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
@@ -196,6 +198,12 @@ object IvrmFetcher {
 
                         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                             if (request.isForMainFrame) lastError = "${request.url.host}: ${error.description}"
+                        }
+
+                        override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                            if (!CnTls.handle(context, error, handler) { Store(context).log("background: $it") }) {
+                                lastError = "certificate problem on ${CnWeb.safeUrl(error.url)} (${error.primaryError})"
+                            }
                         }
 
                         override fun onReceivedClientCertRequest(view: WebView, request: ClientCertRequest) {

@@ -38,6 +38,10 @@ You sign in yourself inside the app ("Sign in / refresh from IVRM"): it opens CN
 
 Background refreshes go straight to the remembered page: first a single quick request with your saved cookies (well under a second when the board is in the page itself), then, if needed, an off-screen WebView with images blocked that reads the board the moment it appears. When CN signs you out, the widget says so and background refreshes stop until you sign in again. Your password is never stored and nothing is sent anywhere except CN.
 
+Mobile Crew opens in its own window, so it gets a real second page on top of SharePoint (Back closes it).
+
+`ivrm.cn.ca` sends its certificate without the intermediate that links it to a trusted root. Chrome fetches the missing piece; apps don't, which is why IVRM showed a certificate error in the app. The app bundles that intermediate (Sectigo Public Server Authentication CA OV R36, `res/raw/sectigo_ov_r36.pem`) and trusts it for `cn.ca` sites only (`res/xml/network_security_config.xml`); `IvrmCertTest` checks the chain. If CN ever changes certificate and that error comes back, the debug info will show it.
+
 Sites that ask for a device certificate (as Chrome hands over automatically on company-set-up phones) get Android's certificate picker; the choice is remembered for background refreshes.
 
 **Backup that always works:** open IVRM in Chrome, take a screenshot and Share → *Railway Time board* (or "Import IVRM screenshot" in the app). The screenshot is read on the phone with ML Kit text recognition — nothing is uploaded — and the widget updates. "Paste copied IVRM page" does the same with Select all → Copy from Chrome. The reader copes with what screenshots do to the page (lost spaces like `190559`, `AO` for `A0`, a dropped status or initials); `RealScreenshotTest` runs the text read from a real IVRM screenshot through it.
