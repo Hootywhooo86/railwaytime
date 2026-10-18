@@ -88,7 +88,8 @@ class MainActivity : Activity() {
         if (onDuty) return
 
         val s = Summary.build(this)
-        findViewById<TextView>(R.id.status).text = s.updated
+        findViewById<TextView>(R.id.status).text =
+            if (store.status == Store.Status.ERROR) "${s.updated}\nWhy: ${store.statusDetail.orEmpty()}" else s.updated
         findViewById<TextView>(R.id.summary).text = if (!s.hasBoard) "No board yet" else listOf(
             "Position ${s.position} · ${s.ahead} ahead (${s.aheadSub})",
             "${s.beforeYou} likely ordered before you",

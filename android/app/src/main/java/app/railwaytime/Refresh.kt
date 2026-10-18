@@ -10,6 +10,9 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Handler
+import android.os.Message
+import android.view.View
+import android.webkit.WebChromeClient
 import android.os.Looper
 import android.os.SystemClock
 import android.webkit.ClientCertRequest
@@ -32,6 +35,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import app.railwaytime.core.AppSettings
 import app.railwaytime.core.BoardParser
 import app.railwaytime.core.PageText
 import app.railwaytime.core.RailClock
@@ -39,6 +43,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import org.json.JSONObject
 import org.json.JSONTokener
 import java.net.HttpURLConnection
 import java.net.URL
@@ -191,7 +196,7 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         Widget.updateAll(applicationContext)
         store.log("refresh${if (manual) " (tapped)" else ""}: ${CnWeb.safeUrl(url)}")
         try {
-            when (val r = IvrmFetcher.fetch(applicationContext, url)) {
+            when (val r = IvrmFetcher.fetch(applicationContext, store.boardUrl, store.settings)) {
                 is IvrmFetcher.Result.Board -> {
                     store.saveBoard(r.text, r.url)
                     store.log("refresh: board updated")
@@ -278,76 +283,161 @@ object IvrmFetcher {
     /** How long a sign-in page may stay up before we decide you're signed out (SSO passes through faster). */
     private const val SIGN_IN_SETTLE_MS = 8_000L
 
-    suspend fun fetch(context: Context, url: String, timeoutMs: Long = 60_000): Result = withContext(Dispatchers.Main) {
-        quickFetch(context, url)?.let { return@withContext it }
-        val main = Handler(Looper.getMainLooper())
-        val web = WebView(context.applicationContext)
-        CnWeb.configure(web)
-        // The widget doesn't need pictures.
-        web.settings.loadsImagesAutomatically = false
-        web.settings.blockNetworkImage = true
-        var page = 0
-        var lastUrl: String? = null
-        var lastError: String? = null
-        val followedFrames = mutableSetOf<String>()
-        try {
-            val result = withTimeoutOrNull(timeoutMs) {
-                suspendCancellableCoroutine { cont ->
-                    web.webViewClient = object : WebViewClient() {
-                        override fun onPageStarted(view: WebView, pageUrl: String?, favicon: android.graphics.Bitmap?) {
-                            lastUrl = pageUrl
-                            page++
-                        }
+    /**
+     * 1. The saved IVRM page (fast, but IVRM's visit can expire).
+     * 2. Otherwise the way you'd do it: SharePoint → Mobile Crew → read the board.
+     */
+    suspend fun fetch(context: Context, boardUrl: String?, settings: AppSettings): Result {
+        val store = Store(context)
+        if (boardUrl != null) {
+            quickFetch(context, boardUrl)?.let { return it }
+            val direct = browse(context, boardUrl, followMobileCrew = false, timeoutMs = 30_000)
+            if (direct !is Result.Failed) return direct
+            store.log("refresh: saved IVRM page didn't show the board (${direct.reason}); going via SharePoint")
+        }
+        return browse(context, settings.sharepointUrl, followMobileCrew = true, timeoutMs = 75_000)
+    }
 
-                        override fun onReceivedHttpAuthRequest(view: WebView, handler: HttpAuthHandler, host: String, realm: String) {
-                            handler.cancel()
-                            if (cont.isActive) cont.resume(Result.SignIn)
-                        }
+    /** Loads [startUrl] in hidden WebViews (new windows included) until a page shows the board. */
+    private suspend fun browse(context: Context, startUrl: String, followMobileCrew: Boolean, timeoutMs: Long): Result =
+        withContext(Dispatchers.Main) {
+            val main = Handler(Looper.getMainLooper())
+            val views = mutableListOf<WebView>()
+            val loads = HashMap<WebView, Int>()
+            val followedFrames = mutableSetOf<String>()
+            var followedCrew = false
+            var lastUrl: String? = null
+            var lastError: String? = null
+            var lastText = ""
+            try {
+                val result = withTimeoutOrNull(timeoutMs) {
+                    suspendCancellableCoroutine { cont ->
+                        lateinit var newView: () -> WebView
 
-                        override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                            if (request.isForMainFrame) lastError = "${request.url.host}: ${error.description}"
-                        }
-
-                        override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
-                            if (!CnTls.handle(context, error, handler) { Store(context).log("background: $it") }) {
-                                lastError = "certificate problem on ${CnWeb.safeUrl(error.url)} (${error.primaryError})"
+                        // Look for SharePoint's Mobile Crew link for up to 20 s while the page draws.
+                        fun openMobileCrew(view: WebView, triesLeft: Int = 40) {
+                            if (followedCrew || !cont.isActive || triesLeft == 0) return
+                            view.evaluateJavascript(CnWeb.MOBILE_CREW_JS) { json ->
+                                val found = runCatching { JSONObject(decodeJs(json)) }.getOrNull()
+                                when {
+                                    found?.has("href") == true -> {
+                                        followedCrew = true
+                                        Store(context).log("refresh: opening Mobile Crew")
+                                        view.loadUrl(found.getString("href"))
+                                    }
+                                    found?.has("clicked") == true -> {
+                                        followedCrew = true
+                                        Store(context).log("refresh: clicked Mobile Crew")
+                                    }
+                                    else -> main.postDelayed({ openMobileCrew(view, triesLeft - 1) }, 500)
+                                }
                             }
                         }
 
-                        override fun onReceivedClientCertRequest(view: WebView, request: ClientCertRequest) {
-                            CnWeb.answerClientCert(context, request, activity = null)
-                        }
-
-                        override fun onPageFinished(view: WebView, pageUrl: String?) {
-                            lastUrl = pageUrl
-                            val mine = ++page
-                            if (isSignInUrl(pageUrl)) {
-                                // Signed in, Microsoft's page just passes us on. Only if it's still
-                                // sitting there a few seconds later are you really signed out.
-                                main.postDelayed({
-                                    if (mine == page && cont.isActive) cont.resume(Result.SignIn)
-                                }, SIGN_IN_SETTLE_MS)
-                                return
+                        val chrome = object : WebChromeClient() {
+                            // Mobile Crew opens a new window: give it its own hidden page.
+                            override fun onCreateWindow(view: WebView, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message): Boolean {
+                                (resultMsg.obj as WebView.WebViewTransport).webView = newView()
+                                resultMsg.sendToTarget()
+                                return true
                             }
-                            CnWeb.readBoard(view, stillWanted = { mine == page && cont.isActive }, done = { text ->
-                                if (text != null) {
-                                    cont.resume(Result.Board(text, view.url))
-                                    return@readBoard
-                                }
-                                // Board embedded from another site: open it directly.
-                                view.evaluateJavascript(CnWeb.CREW_FRAMES_JS) { frames ->
-                                    CnWeb.crewFrames(frames).firstOrNull { followedFrames.add(it) }?.let(view::loadUrl)
-                                }
-                            })
                         }
+                        val client = object : WebViewClient() {
+                            override fun onPageStarted(view: WebView, pageUrl: String?, favicon: android.graphics.Bitmap?) {
+                                lastUrl = pageUrl
+                                loads[view] = (loads[view] ?: 0) + 1
+                            }
+
+                            override fun onReceivedHttpAuthRequest(view: WebView, handler: HttpAuthHandler, host: String, realm: String) {
+                                handler.cancel()
+                                if (cont.isActive) cont.resume(Result.SignIn)
+                            }
+
+                            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                                if (request.isForMainFrame) lastError = "${request.url.host}: ${error.description}"
+                            }
+
+                            override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                                if (!CnTls.handle(context, error, handler) { Store(context).log("refresh: $it") }) {
+                                    lastError = "certificate problem on ${CnWeb.safeUrl(error.url)} (${error.primaryError})"
+                                }
+                            }
+
+                            override fun onReceivedClientCertRequest(view: WebView, request: ClientCertRequest) {
+                                CnWeb.answerClientCert(context, request, activity = null)
+                            }
+
+                            override fun onPageFinished(view: WebView, pageUrl: String?) {
+                                lastUrl = pageUrl
+                                val mine = (loads[view] ?: 0) + 1
+                                loads[view] = mine
+                                if (isSignInUrl(pageUrl)) {
+                                    // Signed in, Microsoft's page just passes us on. Only if it's still
+                                    // sitting there a few seconds later are you really signed out.
+                                    main.postDelayed({
+                                        if (loads[view] == mine && cont.isActive) cont.resume(Result.SignIn)
+                                    }, SIGN_IN_SETTLE_MS)
+                                    return
+                                }
+                                val onSharePoint = followMobileCrew && !followedCrew
+                                CnWeb.readBoard(
+                                    view,
+                                    stillWanted = { loads[view] == mine && cont.isActive },
+                                    done = { text ->
+                                        if (text != null) {
+                                            cont.resume(Result.Board(text, view.url))
+                                            return@readBoard
+                                        }
+                                        // Board embedded from another site: open it directly.
+                                        view.evaluateJavascript(CnWeb.CREW_FRAMES_JS) { frames ->
+                                            CnWeb.crewFrames(frames).firstOrNull { followedFrames.add(it) }?.let(view::loadUrl)
+                                        }
+                                        if (onSharePoint) openMobileCrew(view)
+                                    },
+                                    forMs = if (onSharePoint) 1_500 else 8_000,
+                                    onText = { lastText = it },
+                                )
+                            }
+                        }
+                        newView = {
+                            WebView(context.applicationContext).also { w ->
+                                CnWeb.configure(w)
+                                // The widget doesn't need pictures.
+                                w.settings.loadsImagesAutomatically = false
+                                w.settings.blockNetworkImage = true
+                                w.settings.javaScriptCanOpenWindowsAutomatically = true
+                                w.settings.setSupportMultipleWindows(true)
+                                // A phone-sized page: SharePoint only draws what's "on screen", and a
+                                // hidden WebView is otherwise 0×0.
+                                w.measure(
+                                    View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY),
+                                    View.MeasureSpec.makeMeasureSpec(2340, View.MeasureSpec.EXACTLY),
+                                )
+                                w.layout(0, 0, 1080, 2340)
+                                w.webChromeClient = chrome
+                                w.webViewClient = client
+                                views += w
+                            }
+                        }
+                        newView().loadUrl(startUrl)
                     }
-                    web.loadUrl(url)
+                }
+                result ?: when {
+                    isSignInUrl(lastUrl) -> Result.SignIn
+                    else -> Result.Failed(
+                        lastError ?: buildString {
+                            append(if (followMobileCrew && !followedCrew) "Mobile Crew link not found" else "no board")
+                            append(" at ${CnWeb.safeUrl(lastUrl)}")
+                            val snippet = lastText.replace(Regex("""\s+"""), " ").trim().take(120)
+                            if (snippet.isNotEmpty()) append(" — page said: \"$snippet\"")
+                        },
+                    )
+                }
+            } finally {
+                views.forEach {
+                    it.stopLoading()
+                    it.destroy()
                 }
             }
-            result ?: if (isSignInUrl(lastUrl)) Result.SignIn else Result.Failed(lastError ?: "crew page didn't show a board")
-        } finally {
-            web.stopLoading()
-            web.destroy()
         }
-    }
 }

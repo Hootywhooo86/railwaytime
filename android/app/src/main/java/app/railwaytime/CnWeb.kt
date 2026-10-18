@@ -50,6 +50,7 @@ object CnWeb {
         done: (String?) -> Unit,
         everyMs: Long = 300,
         forMs: Long = 6_000,
+        onText: (String) -> Unit = {},
     ) {
         val until = SystemClock.uptimeMillis() + forMs
         // Not view.postDelayed: a WebView that isn't on screen (background refresh) never runs those.
@@ -59,6 +60,7 @@ object CnWeb {
             view.evaluateJavascript(PageText.EXTRACT_JS) { json ->
                 if (!stillWanted()) return@evaluateJavascript
                 val text = IvrmFetcher.decodeJs(json)
+                onText(text)
                 when {
                     BoardParser.looksLikeBoard(text) -> done(text)
                     SystemClock.uptimeMillis() >= until -> done(null)
@@ -108,6 +110,27 @@ object CnWeb {
             else -> request.cancel()
         }
     }
+
+    /**
+     * Finds SharePoint's "Mobile Crew Inquiry" link. Returns {"href": …} when it's a plain link,
+     * {"clicked": true} when it had to be clicked (it opens a new window), or {} if not drawn yet.
+     */
+    const val MOBILE_CREW_JS = """
+(function(){
+  var re=/mobile\s*crew/i;
+  var els=document.querySelectorAll('a,button,[role=link],[role=button],[aria-label],[title]');
+  for(var i=0;i<els.length;i++){
+    var e=els[i];
+    var t=(e.getAttribute('aria-label')||'')+' '+(e.getAttribute('title')||'')+' '+(e.textContent||'');
+    if(!re.test(t))continue;
+    var a=e.closest('a');
+    if(a&&a.href&&/^https?:/.test(a.href)&&a.target!=='_blank')return JSON.stringify({href:a.href});
+    e.click();
+    return JSON.stringify({clicked:true});
+  }
+  return '{}';
+})()
+"""
 
     fun isWebUrl(url: String?): Boolean = url != null && (url.startsWith("https://") || url.startsWith("http://"))
 
