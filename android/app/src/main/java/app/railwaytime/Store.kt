@@ -61,6 +61,16 @@ class Store(context: Context) {
         get() = System.currentTimeMillis() - prefs.getLong("refreshing_since", 0) < 2 * 60_000L
         set(v) = prefs.edit().putLong("refreshing_since", if (v) System.currentTimeMillis() else 0).apply()
 
+    /** When the next automatic refresh is due (0 = none armed). */
+    var nextRefreshAt: Long
+        get() = prefs.getLong("next_refresh_at", 0)
+        set(v) = prefs.edit().putLong("next_refresh_at", v).apply()
+
+    /** When a refresh last started, successful or not. */
+    var lastAttemptAt: Long
+        get() = prefs.getLong("last_attempt_at", 0)
+        set(v) = prefs.edit().putLong("last_attempt_at", v).apply()
+
     /** The device certificate you picked for CN, reused by background refreshes. */
     var certAlias: String?
         get() = prefs.getString("cert_alias", null)

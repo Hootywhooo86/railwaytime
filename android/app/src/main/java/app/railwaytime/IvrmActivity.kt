@@ -149,7 +149,7 @@ class IvrmActivity : Activity() {
                 log("board found at ${CnWeb.safeUrl(view.url)}")
                 CookieManager.getInstance().flush()
                 Widget.updateAll(this)
-                RefreshScheduler.schedule(this)
+                RefreshScheduler.scheduleNext(this)
                 status.text = "Board saved ✓ — widget updated. Tap Done."
                 return@readBoard
             }

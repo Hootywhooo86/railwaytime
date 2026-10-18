@@ -53,7 +53,7 @@ class MainActivity : Activity() {
             Importer.toast(this, text != null && Importer.importText(this, text, "paste"))
             render()
         }
-        RefreshScheduler.schedule(this)
+        RefreshScheduler.ensure(this)
     }
 
     override fun onResume() {

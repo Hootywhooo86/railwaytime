@@ -1,10 +1,14 @@
 package app.railwaytime
 
 import android.app.AlarmManager
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -18,11 +22,13 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
+import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
+import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
+import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
@@ -37,6 +43,7 @@ import org.json.JSONTokener
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 
 /** On duty = nothing talks to CN; the widget only shows the clocks. */
@@ -47,7 +54,7 @@ object Duty {
             RefreshScheduler.cancel(context)
         } else {
             RefreshScheduler.refreshNow(context)
-            RefreshScheduler.schedule(context)
+            RefreshScheduler.scheduleNext(context)
         }
         Widget.updateAll(context)
     }
@@ -55,59 +62,115 @@ object Duty {
     fun toggle(context: Context) = set(context, !Store(context).onDuty)
 }
 
-/** Every [AppSettings.refreshMin] minutes while off duty, via inexact alarms (WorkManager's floor is 15). */
+/**
+ * Every [AppSettings.refreshMin] minutes while off duty. An exact alarm (the kind clock apps use)
+ * wakes the phone on time even when it's asleep and starts the refresh as expedited work, which
+ * also runs while the phone sleeps. A 15-minute WorkManager check re-arms the alarm if it's ever
+ * lost and catches up when a refresh is overdue.
+ */
 object RefreshScheduler {
     const val ACTION_REFRESH = "app.railwaytime.REFRESH"
     const val ACTION_RENDER = "app.railwaytime.RENDER"
+    const val KEY_MANUAL = "manual"
     private const val WORK = "refresh"
+    private const val WATCHDOG = "refresh-watchdog"
 
-    private fun pending(context: Context, action: String) = PendingIntent.getBroadcast(
+    private fun pending(context: Context, action: String, flags: Int = PendingIntent.FLAG_UPDATE_CURRENT) = PendingIntent.getBroadcast(
         context, action.hashCode(),
         Intent(context, AlarmReceiver::class.java).setAction(action),
-        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        PendingIntent.FLAG_IMMUTABLE or flags,
     )
 
-    fun schedule(context: Context) {
+    private fun everyMs(context: Context) = Store(context).settings.refreshMin.coerceAtLeast(5) * 60_000L
+
+    /** Arms the next refresh one interval from now. Called when a refresh alarm fires. */
+    fun scheduleNext(context: Context) {
         val store = Store(context)
         val am = context.getSystemService(AlarmManager::class.java)
         am.cancel(pending(context, ACTION_REFRESH))
         if (!store.onDuty) {
-            val every = store.settings.refreshMin.coerceAtLeast(5) * 60_000L
-            am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, SystemClock.elapsedRealtime() + every, pending(context, ACTION_REFRESH))
+            val every = everyMs(context)
+            val at = SystemClock.elapsedRealtime() + every
+            val exact = Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()
+            if (exact) {
+                am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, pending(context, ACTION_REFRESH))
+            } else {
+                am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, at, pending(context, ACTION_REFRESH))
+            }
+            store.nextRefreshAt = System.currentTimeMillis() + every
+            startWatchdog(context)
         }
-        // Redraw the widget clock when railtime changes offset (Nov 1), even on duty.
-        RailClock.nextSwitch(store.settings, Instant.now())?.let {
+        scheduleClockSwitch(context)
+    }
+
+    /**
+     * Makes sure a refresh is coming without pushing it back: opening the app or redrawing the
+     * widget calls this, and it only arms an alarm when none is waiting.
+     */
+    fun ensure(context: Context) {
+        val store = Store(context)
+        if (store.onDuty) return
+        val armed = pending(context, ACTION_REFRESH, PendingIntent.FLAG_NO_CREATE) != null &&
+            store.nextRefreshAt > System.currentTimeMillis()
+        if (!armed) scheduleNext(context)
+        if (System.currentTimeMillis() - store.lastAttemptAt > everyMs(context) + 60_000) refreshNow(context)
+        scheduleClockSwitch(context)
+    }
+
+    /** Redraw the widget clock when railtime changes offset (Nov 1), even on duty. */
+    private fun scheduleClockSwitch(context: Context) {
+        val am = context.getSystemService(AlarmManager::class.java)
+        RailClock.nextSwitch(Store(context).settings, Instant.now())?.let {
             am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, it.toEpochMilli() + 1_000, pending(context, ACTION_RENDER))
         }
     }
 
-    fun cancel(context: Context) {
-        context.getSystemService(AlarmManager::class.java).cancel(pending(context, ACTION_REFRESH))
-        WorkManager.getInstance(context).cancelUniqueWork(WORK)
+    private fun startWatchdog(context: Context) {
+        val request = PeriodicWorkRequestBuilder<WatchdogWorker>(15, TimeUnit.MINUTES).build()
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(WATCHDOG, ExistingPeriodicWorkPolicy.KEEP, request)
     }
 
-    const val KEY_MANUAL = "manual"
+    fun cancel(context: Context) {
+        context.getSystemService(AlarmManager::class.java).cancel(pending(context, ACTION_REFRESH))
+        Store(context).nextRefreshAt = 0
+        WorkManager.getInstance(context).cancelUniqueWork(WORK)
+        WorkManager.getInstance(context).cancelUniqueWork(WATCHDOG)
+    }
 
     /** [manual]: you asked for it (widget or app), so it also runs while signed out. */
     fun refreshNow(context: Context, manual: Boolean = false) {
         if (Store(context).onDuty) return
         val request = OneTimeWorkRequestBuilder<RefreshWorker>()
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            // Expedited: runs right away, even while the phone is asleep.
+            .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
             .setInputData(workDataOf(KEY_MANUAL to manual))
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(WORK, if (manual) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP, request)
     }
 }
 
+/** Every 15 minutes: re-arms the 10-minute alarm if it was lost, and refreshes if one is overdue. */
+class WatchdogWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        RefreshScheduler.ensure(applicationContext)
+        return Result.success()
+    }
+}
+
 class AlarmReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
-            RefreshScheduler.ACTION_REFRESH -> RefreshScheduler.refreshNow(context)
-            RefreshScheduler.ACTION_RENDER -> Unit
-            // Boot / app update: alarms are gone, set them again.
-            else -> RefreshScheduler.refreshNow(context)
+            RefreshScheduler.ACTION_REFRESH -> {
+                RefreshScheduler.refreshNow(context)
+                RefreshScheduler.scheduleNext(context)
+            }
+            RefreshScheduler.ACTION_RENDER -> RefreshScheduler.ensure(context)
+            // Boot / app update / exact-alarm permission changed: alarms are gone, set them again.
+            else -> {
+                RefreshScheduler.refreshNow(context)
+                RefreshScheduler.scheduleNext(context)
+            }
         }
-        RefreshScheduler.schedule(context)
         Widget.updateAll(context)
     }
 }
@@ -123,6 +186,7 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         if (signedOutRecently && !manual) return Result.success()
 
         val url = store.boardUrl ?: store.settings.ivrmUrl
+        store.lastAttemptAt = System.currentTimeMillis()
         store.refreshing = true
         Widget.updateAll(applicationContext)
         store.log("refresh${if (manual) " (tapped)" else ""}: ${CnWeb.safeUrl(url)}")
@@ -148,8 +212,21 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         return Result.success()
     }
 
+    /** Only used before Android 12, where expedited work runs as a short foreground job. */
+    override suspend fun getForegroundInfo(): ForegroundInfo {
+        val nm = applicationContext.getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(NotificationChannel(CHANNEL, "Board refresh", NotificationManager.IMPORTANCE_MIN))
+        val n = Notification.Builder(applicationContext, CHANNEL)
+            .setSmallIcon(R.drawable.ic_stat_refresh)
+            .setContentTitle("Refreshing crew board")
+            .build()
+        return ForegroundInfo(NOTIFICATION_ID, n)
+    }
+
     private companion object {
         const val SIGNED_OUT_RETRY_MS = 30 * 60_000L
+        const val CHANNEL = "refresh"
+        const val NOTIFICATION_ID = 10
     }
 }
 

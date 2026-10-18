@@ -67,7 +67,7 @@ class SettingsActivity : Activity() {
                 ivrmUrl = ivrm.text.toString().trim().ifEmpty { d.ivrmUrl },
                 sharepointUrl = sharepoint.text.toString().trim().ifEmpty { d.sharepointUrl },
             )
-            RefreshScheduler.schedule(this)
+            RefreshScheduler.scheduleNext(this)
             Widget.updateAll(this)
             Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
             finish()

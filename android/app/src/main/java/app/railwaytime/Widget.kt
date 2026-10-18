@@ -52,7 +52,12 @@ data class Summary(
                 Store.Status.SIGN_IN -> "Signed out of CN · tap to sign in"
                 Store.Status.ERROR -> "Couldn't refresh · last ${updatedAt ?: "never"}"
                 else -> if (updatedAt == null) "Not loaded yet" else "Updated $updatedAt" + if (stale) " · old" else ""
-            } + if (store.refreshing) "" else "  ⟳"
+            } + if (store.refreshing) "" else {
+                val next = store.nextRefreshAt.takeIf { it > System.currentTimeMillis() }?.let {
+                    " · next " + DayTime.clock(LocalDateTime.ofInstant(Instant.ofEpochMilli(it), settings.homeZone))
+                }.orEmpty()
+                "$next  ⟳"
+            }
             val attention = store.status == Store.Status.SIGN_IN || store.status == Store.Status.ERROR || updatedAt == null || stale
             if (p == null) return Summary(hasBoard = false, updated = updated, needsAttention = attention)
 
@@ -89,12 +94,12 @@ data class Summary(
 class RailWidget : AppWidgetProvider() {
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         Widget.updateAll(context)
-        RefreshScheduler.schedule(context)
+        RefreshScheduler.ensure(context)
     }
 
     override fun onEnabled(context: Context) {
         RefreshScheduler.refreshNow(context)
-        RefreshScheduler.schedule(context)
+        RefreshScheduler.scheduleNext(context)
     }
 
     override fun onReceive(context: Context, intent: Intent) {
