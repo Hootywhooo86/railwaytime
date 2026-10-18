@@ -48,11 +48,11 @@ data class Summary(
                 DayTime.clock(LocalDateTime.ofInstant(Instant.ofEpochMilli(it), settings.homeZone))
             }
             val stale = store.fetchedAt > 0 && System.currentTimeMillis() - store.fetchedAt > STALE_MS
-            val updated = when (store.status) {
+            val updated = if (store.refreshing) "Refreshing…" else when (store.status) {
                 Store.Status.SIGN_IN -> "Signed out of CN · tap to sign in"
                 Store.Status.ERROR -> "Couldn't refresh · last ${updatedAt ?: "never"}"
                 else -> if (updatedAt == null) "Not loaded yet" else "Updated $updatedAt" + if (stale) " · old" else ""
-            }
+            } + if (store.refreshing) "" else "  ⟳"
             val attention = store.status == Store.Status.SIGN_IN || store.status == Store.Status.ERROR || updatedAt == null || stale
             if (p == null) return Summary(hasBoard = false, updated = updated, needsAttention = attention)
 
@@ -65,7 +65,7 @@ data class Summary(
                 position = p.myPosition?.let { "%02d".format(it) } ?: "?",
                 ahead = p.ahead.size.toString(),
                 aheadSub = listOfNotNull(
-                    "${p.availableAhead} avail",
+                    "${p.availableAhead} A0",
                     p.heldAhead.takeIf { it > 0 }?.let { "$it HT" },
                     p.spareAhead.takeIf { it > 0 }?.let { "$it spare" },
                 ).joinToString(" · "),
@@ -98,12 +98,21 @@ class RailWidget : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Widget.ACTION_TOGGLE_DUTY) Duty.toggle(context) else super.onReceive(context, intent)
+        when (intent.action) {
+            Widget.ACTION_TOGGLE_DUTY -> Duty.toggle(context)
+            Widget.ACTION_REFRESH -> {
+                Store(context).refreshing = true
+                Widget.updateAll(context)
+                RefreshScheduler.refreshNow(context, manual = true)
+            }
+            else -> super.onReceive(context, intent)
+        }
     }
 }
 
 object Widget {
     const val ACTION_TOGGLE_DUTY = "app.railwaytime.TOGGLE_DUTY"
+    const val ACTION_REFRESH = "app.railwaytime.REFRESH_NOW"
     private const val ORANGE = 0xFFFF9F1C.toInt()
     private const val PINK = 0xFFFF5D8F.toInt()
     private const val MUTED = 0xFF9A97B8.toInt()
@@ -135,6 +144,12 @@ object Widget {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         v.setOnClickPendingIntent(R.id.duty_button, toggle)
+        // Tap "Updated … ⟳" to refresh now.
+        val refresh = PendingIntent.getBroadcast(
+            context, 2, Intent(context, RailWidget::class.java).setAction(ACTION_REFRESH),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
+        v.setOnClickPendingIntent(R.id.line_updated, refresh)
 
         if (store.onDuty) {
             v.setTextViewText(R.id.duty_button, "ON DUTY")

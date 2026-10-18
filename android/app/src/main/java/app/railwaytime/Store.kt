@@ -56,6 +56,11 @@ class Store(context: Context) {
         prefs.edit().putString("log", (log + "$stamp $line").takeLast(80).joinToString("\n")).apply()
     }
 
+    /** A refresh is running (shown as "Refreshing…"); ignored if older than two minutes. */
+    var refreshing: Boolean
+        get() = System.currentTimeMillis() - prefs.getLong("refreshing_since", 0) < 2 * 60_000L
+        set(v) = prefs.edit().putLong("refreshing_since", if (v) System.currentTimeMillis() else 0).apply()
+
     /** The device certificate you picked for CN, reused by background refreshes. */
     var certAlias: String?
         get() = prefs.getString("cert_alias", null)

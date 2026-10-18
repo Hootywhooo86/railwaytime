@@ -122,22 +122,22 @@
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
-            <LinearLayout style="@style/WidgetTile">
+            <LinearLayout style="@style/WidgetTile" android:layout_weight="0.8">
                 <TextView style="@style/WidgetLabel" android:text="POSITION" />
                 <TextView android:id="@+id/v_position" style="@style/WidgetValue" />
                 <TextView style="@style/WidgetSub" android:text=" " />
             </LinearLayout>
 
-            <LinearLayout style="@style/WidgetTile">
+            <LinearLayout style="@style/WidgetTile" android:layout_weight="1.25">
                 <TextView style="@style/WidgetLabel" android:text="AHEAD" />
                 <TextView android:id="@+id/v_ahead" style="@style/WidgetValue" />
                 <TextView android:id="@+id/v_ahead_sub" style="@style/WidgetSub" />
             </LinearLayout>
 
-            <LinearLayout style="@style/WidgetTile">
+            <LinearLayout style="@style/WidgetTile" android:layout_weight="0.95">
                 <TextView style="@style/WidgetLabel" android:text="BEFORE YOU" />
                 <TextView android:id="@+id/v_before" style="@style/WidgetValue" />
-                <TextView style="@style/WidgetSub" android:text="likely ordered" />
+                <TextView style="@style/WidgetSub" android:text="ordered first" />
             </LinearLayout>
         </LinearLayout>
 

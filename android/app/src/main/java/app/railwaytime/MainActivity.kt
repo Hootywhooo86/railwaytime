@@ -2,7 +2,11 @@ package app.railwaytime
 
 import android.app.Activity
 import android.content.ClipboardManager
+import android.annotation.SuppressLint
 import android.content.Intent
+import android.net.Uri
+import android.os.PowerManager
+import android.provider.Settings
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -19,7 +23,7 @@ class MainActivity : Activity() {
     private val tick = object : Runnable {
         override fun run() {
             render()
-            handler.postDelayed(this, 30_000)
+            handler.postDelayed(this, if (Store(this@MainActivity).refreshing) 2_000 else 15_000)
         }
     }
 
@@ -30,6 +34,16 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.btn_signin).setOnClickListener { startActivity(Intent(this, IvrmActivity::class.java)) }
         findViewById<Button>(R.id.btn_settings).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         findViewById<Button>(R.id.btn_share).setOnClickListener { shareDebug() }
+        findViewById<Button>(R.id.btn_refresh).setOnClickListener {
+            Store(this).refreshing = true
+            RefreshScheduler.refreshNow(this, manual = true)
+            render()
+        }
+        findViewById<Button>(R.id.btn_battery).setOnClickListener {
+            @SuppressLint("BatteryLife")
+            val ask = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))
+            runCatching { startActivity(ask) }.onFailure { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+        }
         findViewById<Button>(R.id.btn_screenshot).setOnClickListener {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*"), PICK_IMAGE)
         }
@@ -61,6 +75,10 @@ class MainActivity : Activity() {
         val offset = RailClock.offsetMinutes(settings, instant)
         findViewById<TextView>(R.id.rail_offset).text =
             if (offset == 0) "Railtime = local time" else "Railtime = local ${if (offset > 0) "+" else ""}${offset} min"
+
+        // Battery optimisation can hold the 10-minute refresh back for hours.
+        findViewById<Button>(R.id.btn_battery).visibility =
+            if (getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)) View.GONE else View.VISIBLE
 
         val onDuty = store.onDuty
         findViewById<Button>(R.id.btn_duty).text = if (onDuty) "ON DUTY — tap when off duty" else "OFF DUTY — tap when on duty"

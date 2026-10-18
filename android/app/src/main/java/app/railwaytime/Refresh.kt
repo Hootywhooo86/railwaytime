@@ -5,6 +5,8 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.webkit.ClientCertRequest
 import android.webkit.CookieManager
@@ -23,6 +25,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import app.railwaytime.core.BoardParser
 import app.railwaytime.core.PageText
 import app.railwaytime.core.RailClock
@@ -83,12 +86,16 @@ object RefreshScheduler {
         WorkManager.getInstance(context).cancelUniqueWork(WORK)
     }
 
-    fun refreshNow(context: Context) {
+    const val KEY_MANUAL = "manual"
+
+    /** [manual]: you asked for it (widget or app), so it also runs while signed out. */
+    fun refreshNow(context: Context, manual: Boolean = false) {
         if (Store(context).onDuty) return
         val request = OneTimeWorkRequestBuilder<RefreshWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setInputData(workDataOf(KEY_MANUAL to manual))
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(WORK, ExistingWorkPolicy.KEEP, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK, if (manual) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP, request)
     }
 }
 
@@ -108,22 +115,41 @@ class AlarmReceiver : BroadcastReceiver() {
 class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val store = Store(applicationContext)
-        // Signed out: wait for you to sign in again in the app rather than poking CN's login page.
-        if (store.onDuty || store.status == Store.Status.SIGN_IN) return Result.success()
+        if (store.onDuty) return Result.success()
+        val manual = inputData.getBoolean(RefreshScheduler.KEY_MANUAL, false)
+        // Signed out: only look again every half hour (or when you tap refresh) until you sign in.
+        val signedOutRecently = store.status == Store.Status.SIGN_IN &&
+            System.currentTimeMillis() - store.statusAt < SIGNED_OUT_RETRY_MS
+        if (signedOutRecently && !manual) return Result.success()
+
         val url = store.boardUrl ?: store.settings.ivrmUrl
-        when (val r = IvrmFetcher.fetch(applicationContext, url)) {
-            is IvrmFetcher.Result.Board -> store.saveBoard(r.text, r.url)
-            IvrmFetcher.Result.SignIn -> {
-                store.setStatus(Store.Status.SIGN_IN)
-                store.log("background: signed out (${CnWeb.safeUrl(url)})")
-            }
-            is IvrmFetcher.Result.Failed -> {
-                store.setStatus(Store.Status.ERROR, r.reason)
-                store.log("background: ${r.reason}")
-            }
-        }
+        store.refreshing = true
         Widget.updateAll(applicationContext)
+        store.log("refresh${if (manual) " (tapped)" else ""}: ${CnWeb.safeUrl(url)}")
+        try {
+            when (val r = IvrmFetcher.fetch(applicationContext, url)) {
+                is IvrmFetcher.Result.Board -> {
+                    store.saveBoard(r.text, r.url)
+                    store.log("refresh: board updated")
+                }
+                IvrmFetcher.Result.SignIn -> {
+                    store.setStatus(Store.Status.SIGN_IN)
+                    store.log("refresh: CN sign-in page stayed up — signed out")
+                }
+                is IvrmFetcher.Result.Failed -> {
+                    store.setStatus(Store.Status.ERROR, r.reason)
+                    store.log("refresh failed: ${r.reason}")
+                }
+            }
+        } finally {
+            store.refreshing = false
+            Widget.updateAll(applicationContext)
+        }
         return Result.success()
+    }
+
+    private companion object {
+        const val SIGNED_OUT_RETRY_MS = 30 * 60_000L
     }
 }
 
@@ -172,8 +198,12 @@ object IvrmFetcher {
     /** Decodes evaluateJavascript's JSON string result. */
     fun decodeJs(json: String?): String = runCatching { JSONTokener(json).nextValue() as? String }.getOrNull() ?: ""
 
+    /** How long a sign-in page may stay up before we decide you're signed out (SSO passes through faster). */
+    private const val SIGN_IN_SETTLE_MS = 8_000L
+
     suspend fun fetch(context: Context, url: String, timeoutMs: Long = 60_000): Result = withContext(Dispatchers.Main) {
         quickFetch(context, url)?.let { return@withContext it }
+        val main = Handler(Looper.getMainLooper())
         val web = WebView(context.applicationContext)
         CnWeb.configure(web)
         // The widget doesn't need pictures.
@@ -188,7 +218,8 @@ object IvrmFetcher {
                 suspendCancellableCoroutine { cont ->
                     web.webViewClient = object : WebViewClient() {
                         override fun onPageStarted(view: WebView, pageUrl: String?, favicon: android.graphics.Bitmap?) {
-                            if (isSignInUrl(pageUrl) && cont.isActive) cont.resume(Result.SignIn)
+                            lastUrl = pageUrl
+                            page++
                         }
 
                         override fun onReceivedHttpAuthRequest(view: WebView, handler: HttpAuthHandler, host: String, realm: String) {
@@ -212,11 +243,15 @@ object IvrmFetcher {
 
                         override fun onPageFinished(view: WebView, pageUrl: String?) {
                             lastUrl = pageUrl
+                            val mine = ++page
                             if (isSignInUrl(pageUrl)) {
-                                if (cont.isActive) cont.resume(Result.SignIn)
+                                // Signed in, Microsoft's page just passes us on. Only if it's still
+                                // sitting there a few seconds later are you really signed out.
+                                main.postDelayed({
+                                    if (mine == page && cont.isActive) cont.resume(Result.SignIn)
+                                }, SIGN_IN_SETTLE_MS)
                                 return
                             }
-                            val mine = ++page
                             CnWeb.readBoard(view, stillWanted = { mine == page && cont.isActive }, done = { text ->
                                 if (text != null) {
                                     cont.resume(Result.Board(text, view.url))

@@ -6,6 +6,8 @@ import android.content.Context
 import android.net.Uri
 import android.security.KeyChain
 import android.webkit.ClientCertRequest
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.webkit.CookieManager
 import android.webkit.WebSettings
@@ -50,6 +52,8 @@ object CnWeb {
         forMs: Long = 6_000,
     ) {
         val until = SystemClock.uptimeMillis() + forMs
+        // Not view.postDelayed: a WebView that isn't on screen (background refresh) never runs those.
+        val main = Handler(Looper.getMainLooper())
         fun attempt() {
             if (!stillWanted()) return
             view.evaluateJavascript(PageText.EXTRACT_JS) { json ->
@@ -58,7 +62,7 @@ object CnWeb {
                 when {
                     BoardParser.looksLikeBoard(text) -> done(text)
                     SystemClock.uptimeMillis() >= until -> done(null)
-                    else -> view.postDelayed(::attempt, everyMs)
+                    else -> main.postDelayed(::attempt, everyMs)
                 }
             }
         }

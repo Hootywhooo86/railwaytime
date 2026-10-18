@@ -114,10 +114,24 @@
         </LinearLayout>
 
         <Button
-            android:id="@+id/btn_signin"
+            android:id="@+id/btn_battery"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
+            android:text="Allow refreshing in the background"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/btn_refresh"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Refresh now" />
+
+        <Button
+            android:id="@+id/btn_signin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:text="Sign in / refresh from IVRM" />
 
         <Button
