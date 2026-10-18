@@ -24,9 +24,14 @@ class Store(context: Context) {
     val statusDetail: String? get() = prefs.getString("status_detail", null)
     val statusAt: Long get() = prefs.getLong("status_at", 0)
 
-    fun saveBoard(text: String) {
+    /** The page the board was last read from (often reached via SharePoint → Mobile Crew). */
+    val boardUrl: String? get() = prefs.getString("board_url", null)
+
+    fun saveBoard(text: String, url: String?) {
         val now = System.currentTimeMillis()
-        prefs.edit()
+        val edit = prefs.edit()
+        if (url != null && url.startsWith("http")) edit.putString("board_url", url)
+        edit
             .putString("page_text", text)
             .putLong("fetched_at", now)
             .putString("status", Status.OK.name)

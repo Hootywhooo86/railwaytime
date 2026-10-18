@@ -1,6 +1,5 @@
 package app.railwaytime
 
-import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
@@ -8,6 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
 import android.webkit.CookieManager
+import android.webkit.HttpAuthHandler
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.work.Constraints
@@ -25,6 +28,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONTokener
+import java.net.HttpURLConnection
+import java.net.URL
 import java.time.Instant
 import kotlin.coroutines.resume
 
@@ -102,8 +107,8 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         val store = Store(applicationContext)
         // Signed out: wait for you to sign in again in the app rather than poking CN's login page.
         if (store.onDuty || store.status == Store.Status.SIGN_IN) return Result.success()
-        when (val r = IvrmFetcher.fetch(applicationContext, store.settings.ivrmUrl)) {
-            is IvrmFetcher.Result.Board -> store.saveBoard(r.text)
+        when (val r = IvrmFetcher.fetch(applicationContext, store.boardUrl ?: store.settings.ivrmUrl)) {
+            is IvrmFetcher.Result.Board -> store.saveBoard(r.text, r.url)
             IvrmFetcher.Result.SignIn -> store.setStatus(Store.Status.SIGN_IN)
             is IvrmFetcher.Result.Failed -> store.setStatus(Store.Status.ERROR, r.reason)
         }
@@ -118,7 +123,7 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
  */
 object IvrmFetcher {
     sealed interface Result {
-        data class Board(val text: String) : Result
+        data class Board(val text: String, val url: String?) : Result
         data object SignIn : Result
         data class Failed(val reason: String) : Result
     }
@@ -127,17 +132,47 @@ object IvrmFetcher {
 
     fun isSignInUrl(url: String?): Boolean = url != null && SIGN_IN_HOSTS.any { url.contains(it, ignoreCase = true) }
 
+    /**
+     * Fast path: one plain request with your saved cookies. Works when the server sends the
+     * board in the page itself (no scripts needed); otherwise null and the WebView takes over.
+     * Redirects aren't followed, so a sign-in redirect also falls back to the WebView.
+     */
+    private suspend fun quickFetch(context: Context, url: String): Result? {
+        val cookies = CookieManager.getInstance().getCookie(url) ?: return null
+        val agent = WebSettings.getDefaultUserAgent(context).replace("; wv", "")
+        return withContext(Dispatchers.IO) {
+            runCatching {
+                val c = URL(url).openConnection() as HttpURLConnection
+                try {
+                    c.instanceFollowRedirects = false
+                    c.connectTimeout = 8_000
+                    c.readTimeout = 10_000
+                    c.setRequestProperty("Cookie", cookies)
+                    c.setRequestProperty("User-Agent", agent)
+                    if (c.responseCode != 200) return@runCatching null
+                    val text = PageText.fromHtml(c.inputStream.bufferedReader().use { it.readText() })
+                    if (BoardParser.looksLikeBoard(text)) Result.Board(text, url) else null
+                } finally {
+                    c.disconnect()
+                }
+            }.getOrNull()
+        }
+    }
+
     /** Decodes evaluateJavascript's JSON string result. */
     fun decodeJs(json: String?): String = runCatching { JSONTokener(json).nextValue() as? String }.getOrNull() ?: ""
 
-    @SuppressLint("SetJavaScriptEnabled")
     suspend fun fetch(context: Context, url: String, timeoutMs: Long = 60_000): Result = withContext(Dispatchers.Main) {
+        quickFetch(context, url)?.let { return@withContext it }
         val web = WebView(context.applicationContext)
-        web.settings.javaScriptEnabled = true
-        web.settings.domStorageEnabled = true
-        CookieManager.getInstance().setAcceptCookie(true)
-        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true)
+        CnWeb.configure(web)
+        // The widget doesn't need pictures.
+        web.settings.loadsImagesAutomatically = false
+        web.settings.blockNetworkImage = true
+        var page = 0
         var lastUrl: String? = null
+        var lastError: String? = null
+        val followedFrames = mutableSetOf<String>()
         try {
             val result = withTimeoutOrNull(timeoutMs) {
                 suspendCancellableCoroutine { cont ->
@@ -146,25 +181,38 @@ object IvrmFetcher {
                             if (isSignInUrl(pageUrl) && cont.isActive) cont.resume(Result.SignIn)
                         }
 
+                        override fun onReceivedHttpAuthRequest(view: WebView, handler: HttpAuthHandler, host: String, realm: String) {
+                            handler.cancel()
+                            if (cont.isActive) cont.resume(Result.SignIn)
+                        }
+
+                        override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                            if (request.isForMainFrame) lastError = "${request.url.host}: ${error.description}"
+                        }
+
                         override fun onPageFinished(view: WebView, pageUrl: String?) {
                             lastUrl = pageUrl
                             if (isSignInUrl(pageUrl)) {
                                 if (cont.isActive) cont.resume(Result.SignIn)
                                 return
                             }
-                            // Give the page's own scripts a moment to fill in the sections.
-                            view.postDelayed({
-                                view.evaluateJavascript(PageText.EXTRACT_JS) { json ->
-                                    val text = decodeJs(json)
-                                    if (cont.isActive && BoardParser.looksLikeBoard(text)) cont.resume(Result.Board(text))
+                            val mine = ++page
+                            CnWeb.readBoard(view, stillWanted = { mine == page && cont.isActive }, done = { text ->
+                                if (text != null) {
+                                    cont.resume(Result.Board(text, view.url))
+                                    return@readBoard
                                 }
-                            }, 2_000)
+                                // Board embedded from another site: open it directly.
+                                view.evaluateJavascript(CnWeb.CREW_FRAMES_JS) { frames ->
+                                    CnWeb.crewFrames(frames).firstOrNull { followedFrames.add(it) }?.let(view::loadUrl)
+                                }
+                            })
                         }
                     }
                     web.loadUrl(url)
                 }
             }
-            result ?: if (isSignInUrl(lastUrl)) Result.SignIn else Result.Failed("IVRM page didn't load a board")
+            result ?: if (isSignInUrl(lastUrl)) Result.SignIn else Result.Failed(lastError ?: "crew page didn't show a board")
         } finally {
             web.stopLoading()
             web.destroy()

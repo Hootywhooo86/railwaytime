@@ -34,7 +34,9 @@ Widget-first means the home-screen widget is the product. Any full app behind it
 
 ### How the CN data gets in
 
-You sign in yourself inside the app ("Sign in / refresh from IVRM"): Microsoft sign-in + Authenticator as usual. The app reads the IVRM page once it shows and saves it **on the phone only**. Background refreshes reuse that sign-in in an off-screen WebView. When CN signs you out, the widget says so and background refreshes stop until you sign in again. Your password is never stored and nothing is sent anywhere except CN.
+You sign in yourself inside the app ("Sign in / refresh from IVRM"): it opens CN SharePoint, you sign in (Microsoft + Authenticator as usual) and tap **Mobile Crew**. As soon as the crew board shows, the app reads it, saves it **on the phone only**, and remembers that page's address. Links that open new windows and crew pages embedded in SharePoint are followed automatically; load errors show at the top of the screen.
+
+Background refreshes go straight to the remembered page: first a single quick request with your saved cookies (well under a second when the board is in the page itself), then, if needed, an off-screen WebView with images blocked that reads the board the moment it appears. When CN signs you out, the widget says so and background refreshes stop until you sign in again. Your password is never stored and nothing is sent anywhere except CN.
 
 If the board reads wrong, use "Share page text" in the app and send it over so the parser can be fixed.
 
