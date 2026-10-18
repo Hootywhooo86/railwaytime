@@ -1,6 +1,11 @@
 package app.railwaytime
 
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Context
+import android.net.Uri
+import android.security.KeyChain
+import android.webkit.ClientCertRequest
 import android.os.SystemClock
 import android.webkit.CookieManager
 import android.webkit.WebSettings
@@ -58,6 +63,46 @@ object CnWeb {
             }
         }
         attempt()
+    }
+
+    /** Scheme, host and path only: no query strings (they can carry sign-in tokens). */
+    fun safeUrl(url: String?): String = url?.let {
+        runCatching { Uri.parse(it).let { u -> "${u.scheme}://${u.host}${u.path.orEmpty()}" } }.getOrNull()
+    } ?: "?"
+
+    /**
+     * A site asked for a device certificate (company phones often have one from Intune).
+     * Chrome offers it automatically; WebView refuses unless we answer. With [activity] you get
+     * Android's certificate picker; the choice is remembered for background refreshes.
+     */
+    fun answerClientCert(context: Context, request: ClientCertRequest, activity: Activity?) {
+        val store = Store(context)
+        store.log("certificate requested by ${request.host}")
+        fun proceedWith(alias: String) = Thread {
+            val key = runCatching { KeyChain.getPrivateKey(context, alias) }.getOrNull()
+            val chain = runCatching { KeyChain.getCertificateChain(context, alias) }.getOrNull()
+            if (key != null && chain != null) request.proceed(key, chain) else {
+                store.log("certificate $alias not usable")
+                request.cancel()
+            }
+        }.start()
+        val saved = store.certAlias
+        when {
+            activity != null -> KeyChain.choosePrivateKeyAlias(
+                activity, { alias ->
+                    if (alias == null) {
+                        store.log("no certificate chosen")
+                        request.cancel()
+                    } else {
+                        store.certAlias = alias
+                        proceedWith(alias)
+                    }
+                },
+                request.keyTypes, request.principals, request.host, request.port, saved,
+            )
+            saved != null -> proceedWith(saved)
+            else -> request.cancel()
+        }
     }
 
     fun isWebUrl(url: String?): Boolean = url != null && (url.startsWith("https://") || url.startsWith("http://"))

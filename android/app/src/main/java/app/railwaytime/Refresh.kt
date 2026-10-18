@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.SystemClock
+import android.webkit.ClientCertRequest
 import android.webkit.CookieManager
 import android.webkit.HttpAuthHandler
 import android.webkit.WebResourceError
@@ -107,10 +108,17 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
         val store = Store(applicationContext)
         // Signed out: wait for you to sign in again in the app rather than poking CN's login page.
         if (store.onDuty || store.status == Store.Status.SIGN_IN) return Result.success()
-        when (val r = IvrmFetcher.fetch(applicationContext, store.boardUrl ?: store.settings.ivrmUrl)) {
+        val url = store.boardUrl ?: store.settings.ivrmUrl
+        when (val r = IvrmFetcher.fetch(applicationContext, url)) {
             is IvrmFetcher.Result.Board -> store.saveBoard(r.text, r.url)
-            IvrmFetcher.Result.SignIn -> store.setStatus(Store.Status.SIGN_IN)
-            is IvrmFetcher.Result.Failed -> store.setStatus(Store.Status.ERROR, r.reason)
+            IvrmFetcher.Result.SignIn -> {
+                store.setStatus(Store.Status.SIGN_IN)
+                store.log("background: signed out (${CnWeb.safeUrl(url)})")
+            }
+            is IvrmFetcher.Result.Failed -> {
+                store.setStatus(Store.Status.ERROR, r.reason)
+                store.log("background: ${r.reason}")
+            }
         }
         Widget.updateAll(applicationContext)
         return Result.success()
@@ -188,6 +196,10 @@ object IvrmFetcher {
 
                         override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                             if (request.isForMainFrame) lastError = "${request.url.host}: ${error.description}"
+                        }
+
+                        override fun onReceivedClientCertRequest(view: WebView, request: ClientCertRequest) {
+                            CnWeb.answerClientCert(context, request, activity = null)
                         }
 
                         override fun onPageFinished(view: WebView, pageUrl: String?) {

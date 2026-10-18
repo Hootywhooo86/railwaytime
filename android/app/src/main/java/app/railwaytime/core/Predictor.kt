@@ -20,7 +20,7 @@ data class Prediction(
     val spareAhead: Int,
     /** Held turns (HT without "**") ahead of you that aren't back yet. */
     val heldAhead: Int,
-    /** The next held turn ahead of you to come back. */
+    /** The next person ahead of you to come off rest (earliest Return time still to come). */
     val nextBack: BoardEntry?,
     val myRestUntil: LocalDateTime?,
     val assignments: List<Assignment>,
@@ -78,7 +78,7 @@ object Predictor {
             availableAhead = ahead.count { !it.spare && it.available },
             spareAhead = ahead.count { it.spare },
             heldAhead = held.count { it.returnAt == null || it.returnAt.isAfter(now) },
-            nextBack = held.filter { it.returnAt != null && it.returnAt.isAfter(now) }.minByOrNull { it.returnAt!! },
+            nextBack = ahead.filter { it.returnAt != null && it.returnAt.isAfter(now) }.minByOrNull { it.returnAt!! },
             myRestUntil = myRest,
             assignments = assignments,
             myTrain = mine,

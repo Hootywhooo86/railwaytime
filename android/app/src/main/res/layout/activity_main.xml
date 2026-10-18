@@ -121,6 +121,26 @@
             android:text="Sign in / refresh from IVRM" />
 
         <Button
+            android:id="@+id/btn_screenshot"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Import IVRM screenshot" />
+
+        <Button
+            android:id="@+id/btn_paste"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Paste copied IVRM page" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="If sign-in won't load: open IVRM in Chrome, screenshot it, and Share → Railway Time board. Or Select all → Copy in Chrome and tap Paste."
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+
+        <Button
             android:id="@+id/btn_settings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -130,6 +150,6 @@
             android:id="@+id/btn_share"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Share page text (if the board reads wrong)" />
+            android:text="Share debug info" />
     </LinearLayout>
 </ScrollView>

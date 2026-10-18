@@ -21,6 +21,22 @@
             </intent-filter>
         </activity>
         <activity android:name=".IvrmActivity" android:exported="false" />
+        <activity
+            android:name=".ImportActivity"
+            android:exported="true"
+            android:label="Railway Time board"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
         <activity android:name=".SettingsActivity" android:exported="false" android:label="Settings" />
 
         <receiver android:name=".RailWidget" android:exported="false" android:label="@string/app_name">

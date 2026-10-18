@@ -62,7 +62,7 @@ data class Summary(
                 if (it.isAfter(now)) "Rested ${DayTime.format(it)} (${DayTime.until(now, it)})" else "Rested ✓ since ${DayTime.format(it)}"
             } ?: "Rested ✓"
             val nextBack = p.nextBack?.let { "Next off rest: ${it.init} ${DayTime.format(it.returnAt!!)} (${DayTime.until(now, it.returnAt)})" }
-                ?: "Next off rest: nobody held ahead"
+                ?: "Next off rest: nobody ahead on rest"
             val train = p.myTrain?.let {
                 "Likely ${it.train.label} · ${DayTime.format(it.train.planned)} · order ~${DayTime.clock(it.orderAt)}"
             } ?: "Past the lineup · ${p.trainsBeyondLineup} more train(s) to you"

@@ -13,6 +13,7 @@
 
         <Button android:id="@+id/btn_ivrm" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="IVRM" />
         <Button android:id="@+id/btn_sharepoint" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="SharePoint" />
+        <Button android:id="@+id/btn_chrome" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Chrome" />
         <Button android:id="@+id/btn_done" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Done" />
     </LinearLayout>
 

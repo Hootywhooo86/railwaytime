@@ -11,7 +11,9 @@ import kotlin.math.abs
  * The month and year come from the nearest date to [ref].
  */
 object DayTime {
-    private val PATTERN = Regex("""^(\d{1,2})\s+(\d{1,2}):?(\d{2})$""")
+    /** Day, then time: "18 22:50", "19 0559", and as screenshots read them, "190559" or "1816:00". */
+    const val PATTERN_SRC = """\d{1,2}(?:\s+\d{1,2}|\s*\d{2}):?\d{2}"""
+    private val PATTERN = Regex("""^(\d{1,2})(?:\s+(\d{1,2})|\s*(\d{2})):?(\d{2})$""")
     private val FMT = DateTimeFormatter.ofPattern("dd HH:mm")
     private val CLOCK = DateTimeFormatter.ofPattern("HH:mm")
 
@@ -19,8 +21,8 @@ object DayTime {
 
     fun parse(s: String?, ref: LocalDate): LocalDateTime? {
         val m = PATTERN.matchEntire(s?.trim() ?: return null) ?: return null
-        val (d, h, min) = m.destructured
-        return resolve(d.toInt(), h.toInt(), min.toInt(), ref)
+        val (d, h1, h2, min) = m.destructured
+        return resolve(d.toInt(), h1.ifEmpty { h2 }.toInt(), min.toInt(), ref)
     }
 
     fun resolve(day: Int, hour: Int, minute: Int, ref: LocalDate): LocalDateTime? {

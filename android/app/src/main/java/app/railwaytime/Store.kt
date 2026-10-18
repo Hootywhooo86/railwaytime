@@ -48,6 +48,19 @@ class Store(context: Context) {
             .apply()
     }
 
+    /** Recent sign-in/refresh steps (addresses without query strings, errors) for "Share debug info". */
+    val log: List<String> get() = prefs.getString("log", "")!!.lines().filter { it.isNotBlank() }
+
+    fun log(line: String) {
+        val stamp = java.time.LocalTime.now().withNano(0)
+        prefs.edit().putString("log", (log + "$stamp $line").takeLast(80).joinToString("\n")).apply()
+    }
+
+    /** The device certificate you picked for CN, reused by background refreshes. */
+    var certAlias: String?
+        get() = prefs.getString("cert_alias", null)
+        set(v) = prefs.edit().putString("cert_alias", v).apply()
+
     fun snapshot(): BoardSnapshot? = pageText?.let { BoardParser.parse(it, LocalDate.now()) }
 
     var settings: AppSettings

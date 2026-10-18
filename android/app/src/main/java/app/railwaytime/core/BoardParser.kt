@@ -14,13 +14,31 @@ object BoardParser {
         RegexOption.IGNORE_CASE,
     )
     private val POS = Regex("""^\d{1,3}$""")
-    private val STATUS = Regex("""^(\*\*)?\s*([A-Z][A-Z0-9]{1,3})$""")
+    private val STATUS = Regex("""^(\*{1,2})?\s*([A-Z][A-Z0-9]{1,3})$""")
+    private const val DT = DayTime.PATTERN_SRC
+
+    /**
+     * A whole board row on one line: "05 R W A0", "01 SS ** HT 19 0559". Screenshots can lose
+     * the status ("03 JDL"); then it's taken as A0, or HT when there's a return time.
+     * Missing initials ("07 ** HT 19 0559") still count as a turn, shown as "?".
+     */
     private val ROW_LINE = Regex(
-        """^(\d{1,3})\s+(.+?)\s+(?:(\d{1,2}\s+\d{1,2}:?\d{2})\s+)?(\*\*\s*)?([A-Z][A-Z0-9]{1,3})(?:\s+(\d{1,2}\s+\d{1,2}:?\d{2}))?$""",
+        """^(\d{1,3})(?:\s+([^*\s].*?))?(?:\s+($DT))?(?:\s+(\*{1,2})?\s*([A-Za-z][A-Za-z0-9]{1,3}))?(?:\s+($DT))?$""",
     )
+
+    /** "U76151 18 Planned 18 18:30"; screenshots may read "U7615118 Planned 1818:30". */
     private val TRAIN = Regex(
-        """^([A-Z0-9]*\d[A-Z0-9]*)\s+(\d{1,2})\s+([A-Za-z]+)\s+(\d{1,2})\s+(\d{1,2}):?(\d{2})$""",
+        """^([A-Z0-9]*?\d[A-Z0-9]*?)(?:\s+(\d{1,2})|(\d{2}))\s+([A-Za-z]+)\s*($DT)$""",
+        RegexOption.IGNORE_CASE,
     )
+
+    /** Lower case, no spaces or trailing colon: "CurrentAssignment" matches "Current Assignment". */
+    private fun norm(s: String) = s.lowercase().replace(" ", "").trimEnd(':')
+
+    /** "Current Assignment" → matches "Current Assignment 24 EM…" or "CurrentAssignment 24 EM…". */
+    private val LABEL_LINES = LABELS.associateWith { label ->
+        Regex("""^${label.split(' ').joinToString("""\s*""")}:?\s+(.+)$""", RegexOption.IGNORE_CASE)
+    }
 
     /** True when the text looks like a signed-in crew inquiry page. */
     fun looksLikeBoard(text: String): Boolean = parse(text, LocalDate.now()).isUsable
@@ -53,14 +71,14 @@ object BoardParser {
     }
 
     /** First token that ends with [heading], e.g. "My Pool Lineup:" matches "Pool Lineup". */
-    private fun indexOf(tokens: List<String>, heading: String, from: Int = 0): Int? =
-        (from until tokens.size).firstOrNull {
-            tokens[it].trimEnd(':').endsWith(heading, ignoreCase = true) && tokens[it].length <= heading.length + 4
-        }
+    private fun indexOf(tokens: List<String>, heading: String, from: Int = 0): Int? {
+        val h = norm(heading)
+        return (from until tokens.size).firstOrNull { norm(tokens[it]).let { t -> t.endsWith(h) && t.length <= h.length + 4 } }
+    }
 
     private fun parseCats(tokens: List<String>, ref: LocalDate): CatsInfo {
         val values = mutableMapOf<String, String>()
-        fun isLabel(t: String) = LABELS.any { it.equals(t.trimEnd(':'), ignoreCase = true) }
+        fun isLabel(t: String) = LABELS.any { norm(it) == norm(t) }
         var i = 0
         while (i < tokens.size) {
             val t = tokens[i]
@@ -76,8 +94,10 @@ object BoardParser {
                 continue
             }
             // Single line form: "Board Position 08".
-            LABELS.firstOrNull { t.startsWith("$it ", ignoreCase = true) }?.let {
-                values.putIfAbsent(it, t.substring(it.length).trim())
+            for ((label, re) in LABEL_LINES) {
+                val m = re.matchEntire(t) ?: continue
+                values.putIfAbsent(label, m.groupValues[1].trim())
+                break
             }
             i++
         }
@@ -92,7 +112,7 @@ object BoardParser {
         )
     }
 
-    private fun canonical(label: String) = LABELS.first { it.equals(label.trimEnd(':'), ignoreCase = true) }
+    private fun canonical(label: String) = LABELS.first { norm(it) == norm(label) }
 
     private fun parseBoard(tokens: List<String>, ref: LocalDate): List<BoardEntry> {
         val rows = mutableListOf<BoardEntry>()
@@ -116,7 +136,7 @@ object BoardParser {
     /** Cells after the position: initials, then rest time, status and return time in that order. */
     private fun rowFromCells(cells: List<String>, ref: LocalDate): BoardEntry? {
         val pos = cells[0].toInt()
-        val init = cells.getOrNull(1)?.takeUnless { DayTime.matches(it) } ?: return null
+        val init = cells.getOrNull(1)?.takeUnless { DayTime.matches(it) }?.uppercase() ?: return null
         var rest: String? = null
         var status: MatchResult? = null
         var ret: String? = null
@@ -141,13 +161,14 @@ object BoardParser {
 
     private fun rowFromLine(m: MatchResult, ref: LocalDate): BoardEntry? {
         val (pos, init, rest, stars, status, ret) = m.destructured
+        val returnAt = DayTime.parse(ret, ref)
         return BoardEntry(
             pos = pos.toInt(),
-            init = init.trim(),
+            init = init.trim().uppercase().ifEmpty { "?" },
             restUntil = DayTime.parse(rest, ref),
-            offStatus = status,
+            offStatus = status.uppercase().ifEmpty { if (returnAt != null) "HT" else "A0" },
             spare = stars.isNotBlank(),
-            returnAt = DayTime.parse(ret, ref),
+            returnAt = returnAt,
         )
     }
 
@@ -159,9 +180,9 @@ object BoardParser {
             val joined = if (single == null && i + 1 < tokens.size) TRAIN.matchEntire("${tokens[i]} ${tokens[i + 1]}") else null
             val m = single ?: joined
             if (m != null) {
-                val (symbol, origin, status, day, h, min) = m.destructured
-                DayTime.resolve(day.toInt(), h.toInt(), min.toInt(), ref)?.let {
-                    trains += PoolTrain(symbol, origin.toInt(), status, it)
+                val (symbol, origin1, origin2, status, planned) = m.destructured
+                DayTime.parse(planned, ref)?.let {
+                    trains += PoolTrain(symbol.uppercase(), origin1.ifEmpty { origin2 }.toInt(), status, it)
                 }
             }
             i += if (joined != null) 2 else 1

@@ -1,6 +1,7 @@
 package app.railwaytime
 
 import android.app.Activity
+import android.content.ClipboardManager
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
@@ -28,7 +29,16 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.btn_duty).setOnClickListener { Duty.toggle(this); render() }
         findViewById<Button>(R.id.btn_signin).setOnClickListener { startActivity(Intent(this, IvrmActivity::class.java)) }
         findViewById<Button>(R.id.btn_settings).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
-        findViewById<Button>(R.id.btn_share).setOnClickListener { sharePageText() }
+        findViewById<Button>(R.id.btn_share).setOnClickListener { shareDebug() }
+        findViewById<Button>(R.id.btn_screenshot).setOnClickListener {
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*"), PICK_IMAGE)
+        }
+        findViewById<Button>(R.id.btn_paste).setOnClickListener {
+            val clip = getSystemService(ClipboardManager::class.java).primaryClip
+            val text = clip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
+            Importer.toast(this, text != null && Importer.importText(this, text, "paste"))
+            render()
+        }
         RefreshScheduler.schedule(this)
     }
 
@@ -85,9 +95,34 @@ class MainActivity : Activity() {
         } ?: "Sign in to IVRM to load your board."
     }
 
-    /** Sends the raw page text (e.g. to yourself) if the board isn't read correctly. */
-    private fun sharePageText() {
-        val text = Store(this).pageText ?: return
-        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Share IVRM page text"))
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        val uri = data?.data
+        if (requestCode != PICK_IMAGE || resultCode != RESULT_OK || uri == null) return
+        Importer.importImage(this, uri) { ok ->
+            Importer.toast(this, ok)
+            render()
+        }
+    }
+
+    /** Sign-in steps and the last page text, to send over if something doesn't work. No passwords or cookies. */
+    private fun shareDebug() {
+        val store = Store(this)
+        val text = buildString {
+            appendLine("Railway Time ${packageManager.getPackageInfo(packageName, 0).versionName} · Android ${android.os.Build.VERSION.RELEASE}")
+            appendLine("Board page: ${CnWeb.safeUrl(store.boardUrl)} · status ${store.status} ${store.statusDetail.orEmpty()}")
+            appendLine()
+            appendLine("--- log ---")
+            store.log.forEach { appendLine(it) }
+            appendLine()
+            appendLine("--- last page text ---")
+            append(store.pageText ?: "(none)")
+        }
+        startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "Share debug info"))
+    }
+
+    private companion object {
+        const val PICK_IMAGE = 1
     }
 }

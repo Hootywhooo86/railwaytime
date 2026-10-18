@@ -2,11 +2,14 @@ package app.railwaytime
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.http.SslError
+import android.net.Uri
 import android.os.Bundle
 import android.os.Message
 import android.text.InputType
+import android.webkit.ClientCertRequest
 import android.webkit.CookieManager
 import android.webkit.HttpAuthHandler
 import android.webkit.SslErrorHandler
@@ -75,6 +78,7 @@ class IvrmActivity : Activity() {
                 !CnWeb.isWebUrl(request.url.toString()) // ignore app links (intent:, ms-…:)
 
             override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+                log("open ${CnWeb.safeUrl(url)}")
                 status.text = if (IvrmFetcher.isSignInUrl(url)) "Sign in with your CN account" else "Loading ${hostOf(url)}…"
             }
 
@@ -87,29 +91,45 @@ class IvrmActivity : Activity() {
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
                 if (request.isForMainFrame) {
+                    log("error ${CnWeb.safeUrl(request.url.toString())}: ${error.description} (${error.errorCode})")
                     status.text = "Couldn't load ${request.url.host}: ${error.description} (${error.errorCode})"
                 }
             }
 
             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
                 if (request.isForMainFrame && response.statusCode >= 400) {
+                    log("HTTP ${response.statusCode} ${CnWeb.safeUrl(request.url.toString())}")
                     status.text = "${request.url.host} answered HTTP ${response.statusCode} ${response.reasonPhrase.orEmpty()}"
                 }
             }
 
             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
+                log("SSL error ${error.primaryError} ${CnWeb.safeUrl(error.url)}")
                 status.text = "Security certificate problem on ${hostOf(error.url)} — not loading it"
                 handler.cancel()
             }
 
             override fun onReceivedHttpAuthRequest(view: WebView, handler: HttpAuthHandler, host: String, realm: String) {
+                log("password prompt from $host")
                 askLogin(handler, host)
+            }
+
+            override fun onReceivedClientCertRequest(view: WebView, request: ClientCertRequest) {
+                status.text = "${request.host} wants your device certificate — pick the CN one"
+                CnWeb.answerClientCert(this@IvrmActivity, request, this@IvrmActivity)
             }
         }
 
         findViewById<Button>(R.id.btn_ivrm).setOnClickListener { web.loadUrl(settings.ivrmUrl) }
         findViewById<Button>(R.id.btn_sharepoint).setOnClickListener { web.loadUrl(settings.sharepointUrl) }
         findViewById<Button>(R.id.btn_done).setOnClickListener { finish() }
+        // Backup: open the same page in Chrome, then share a screenshot back to this app.
+        findViewById<Button>(R.id.btn_chrome).setOnClickListener {
+            val url = web.url?.takeIf(CnWeb::isWebUrl) ?: settings.ivrmUrl
+            runCatching {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).setPackage("com.android.chrome"))
+            }.onFailure { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        }
 
         web.loadUrl(store.boardUrl ?: settings.sharepointUrl)
     }
@@ -119,6 +139,7 @@ class IvrmActivity : Activity() {
         CnWeb.readBoard(view, stillWanted = { mine == page && !isFinishing }, done = { text ->
             if (text != null) {
                 Store(this).saveBoard(text, view.url)
+                log("board found at ${CnWeb.safeUrl(view.url)}")
                 CookieManager.getInstance().flush()
                 Widget.updateAll(this)
                 RefreshScheduler.schedule(this)
@@ -156,6 +177,8 @@ class IvrmActivity : Activity() {
             .setOnCancelListener { handler.cancel() }
             .show()
     }
+
+    private fun log(line: String) = Store(this).log(line)
 
     private fun hostOf(url: String?) = url?.let { android.net.Uri.parse(it).host } ?: "page"
 
