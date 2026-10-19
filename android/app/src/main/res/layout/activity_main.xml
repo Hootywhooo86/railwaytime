@@ -72,6 +72,14 @@
             android:textColor="@color/ink"
             android:textStyle="bold" />
 
+        <Button
+            android:id="@+id/btn_nap"
+            style="@style/PixelButtonWide"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/pixel_button"
+            android:textColor="@color/bg"
+            android:textSize="13sp" />
+
         <TextView
             android:id="@+id/on_duty_note"
             style="@style/Card"

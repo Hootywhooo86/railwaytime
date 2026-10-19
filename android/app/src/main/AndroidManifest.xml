@@ -10,6 +10,12 @@
     <!-- Timed refreshes run as a short foreground service so they work while the phone sleeps. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- Nap Stop alarm: ring with sound, vibrate, show over the lock screen. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- Lets you exempt the app from battery optimisation so the 10-minute refresh isn't held back. -->
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
@@ -47,6 +53,22 @@
             </intent-filter>
         </activity>
         <activity android:name=".SettingsActivity" android:exported="false" android:label="Settings" />
+        <activity android:name=".NapActivity" android:exported="false" android:label="Nap Stop" />
+        <activity
+            android:name=".NapRingActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:showWhenLocked="true"
+            android:taskAffinity="app.railwaytime.nap"
+            android:turnScreenOn="true" />
+
+        <service
+            android:name=".NapRingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+
+        <receiver android:name=".NapReceiver" android:exported="false" />
 
         <receiver android:name=".RailWidget" android:exported="false" android:label="@string/app_name">
             <intent-filter>

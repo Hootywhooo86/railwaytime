@@ -34,6 +34,7 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.btn_signin).setOnClickListener { startActivity(Intent(this, IvrmActivity::class.java)) }
         findViewById<Button>(R.id.btn_settings).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         findViewById<Button>(R.id.btn_share).setOnClickListener { shareDebug() }
+        findViewById<Button>(R.id.btn_nap).setOnClickListener { startActivity(Intent(this, NapActivity::class.java)) }
         findViewById<Button>(R.id.btn_refresh).setOnClickListener {
             Store(this).refreshing = true
             RefreshScheduler.refreshNow(this, manual = true)
@@ -79,6 +80,10 @@ class MainActivity : Activity() {
         // Battery optimisation can hold the 10-minute refresh back for hours.
         findViewById<Button>(R.id.btn_battery).visibility =
             if (getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)) View.GONE else View.VISIBLE
+
+        findViewById<Button>(R.id.btn_nap).text = store.napAt.takeIf { it > System.currentTimeMillis() }?.let {
+            "NAP STOP  ⏰ " + DayTime.clock(app.railwaytime.core.NapTime.railtimeOf(settings, Instant.ofEpochMilli(it)))
+        } ?: "NAP STOP  💤🚂"
 
         val onDuty = store.onDuty
         findViewById<Button>(R.id.btn_duty).text = if (onDuty) "ON DUTY — tap when off duty" else "OFF DUTY — tap when on duty"

@@ -180,6 +180,7 @@ class AlarmReceiver : BroadcastReceiver() {
             RefreshScheduler.ACTION_RENDER -> RefreshScheduler.ensure(context)
             // Boot / app update / exact-alarm permission changed: alarms are gone, set them again.
             else -> {
+                NapAlarm.restore(context)
                 RefreshScheduler.refreshNow(context)
                 RefreshScheduler.scheduleNext(context)
             }

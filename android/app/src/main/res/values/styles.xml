@@ -46,6 +46,31 @@
         <item name="android:singleLine">true</item>
     </style>
 
+    <!-- Nap Stop: 8-bit -->
+    <style name="Pixel">
+        <item name="android:fontFamily">@font/press_start_2p</item>
+        <item name="android:textColor">@color/ink</item>
+    </style>
+    <style name="PixelButton" parent="Pixel">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_margin">4dp</item>
+        <item name="android:background">@drawable/pixel_button</item>
+        <item name="android:textColor">@color/bg</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:paddingTop">14dp</item>
+        <item name="android:paddingBottom">18dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:textAllCaps">false</item>
+    </style>
+    <style name="PixelButtonWide" parent="PixelButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_weight">0</item>
+        <item name="android:background">@drawable/pixel_button_alt</item>
+        <item name="android:textSize">11sp</item>
+    </style>
+
     <!-- Widget -->
     <style name="WidgetDivider">
         <item name="android:layout_width">match_parent</item>

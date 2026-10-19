@@ -32,6 +32,10 @@ Widget-first means the home-screen widget is the product. Any full app behind it
 - **Your likely train**: walks the pool lineup in order. Each train is ordered 2 h before planned (configurable) and goes to the first turn, top down, that's off rest by then (`**`-only spare turns go right away, `HT` waits for its Return time and keeps its spot); if you're still on rest it passes you. It's an estimate.
 - **ON DUTY / OFF DUTY switch** on the widget. On duty: nothing is fetched from CN and board info is hidden, only the clocks show. Off duty: refreshes every 10 minutes.
 
+### Nap Stop ⏰🚂
+
+The railtime alarm clock, for the nap after your call. Open the app → **NAP STOP**: a pixel station clock with a train running laps round it, quick buttons (20 · 30 · 45 · 1 HR · 90 min) and *Set a time…* (railtime). Alarms go through Android's alarm-clock system (`setAlarmClock`), so they ring on time with the screen off and the app closed, and show ⏰ in the status bar and on the widget. When it rings: full-screen **ALL ABOARD!** over the lock screen, a synthesised five-chime horn sounding the crossing pattern (long, long, short, long) or the phone's alarm sound, vibration, *One more stop* (+10 min) or *I'm on the train*. Rings for up to 10 minutes. Font: Press Start 2P (OFL).
+
 ### How the CN data gets in
 
 You sign in yourself inside the app ("Sign in / refresh from IVRM"): it opens CN SharePoint, you sign in (Microsoft + Authenticator as usual) and tap **Mobile Crew**. As soon as the crew board shows, the app reads it, saves it **on the phone only**, and remembers that page's address. Links that open new windows and crew pages embedded in SharePoint are followed automatically; load errors show at the top of the screen.

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fitsSystemWindows="true"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        style="@style/Pixel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="ALL ABOARD!"
+        android:textColor="@color/orange"
+        android:textSize="30sp" />
+
+    <app.railwaytime.PixelClockView
+        android:id="@+id/ring_clock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp" />
+
+    <TextView
+        android:id="@+id/ring_line"
+        style="@style/Pixel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="28dp"
+        android:gravity="center"
+        android:lineSpacingExtra="8dp"
+        android:textColor="@color/teal"
+        android:textSize="12sp" />
+
+    <Button
+        android:id="@+id/ring_snooze"
+        style="@style/PixelButtonWide"
+        android:layout_marginTop="40dp"
+        android:lineSpacingExtra="8dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="24dp"
+        android:textSize="13sp" />
+
+    <Button
+        android:id="@+id/ring_dismiss"
+        style="@style/PixelButton"
+        android:layout_width="match_parent"
+        android:layout_weight="0"
+        android:layout_marginTop="12dp"
+        android:paddingTop="24dp"
+        android:paddingBottom="28dp"
+        android:text="I'M ON THE TRAIN"
+        android:textSize="14sp" />
+</LinearLayout>

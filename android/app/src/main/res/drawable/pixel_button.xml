@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Blocky 8-bit button: hard shadow underneath, square corners. -->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_pressed="true">
+        <layer-list>
+            <item android:top="4dp">
+                <shape><solid android:color="@color/orange" /></shape>
+            </item>
+        </layer-list>
+    </item>
+    <item>
+        <layer-list>
+            <item android:top="4dp">
+                <shape><solid android:color="#A05E00" /></shape>
+            </item>
+            <item android:bottom="4dp">
+                <shape><solid android:color="@color/orange" /></shape>
+            </item>
+        </layer-list>
+    </item>
+</selector>

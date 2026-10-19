@@ -71,6 +71,17 @@ class Store(context: Context) {
         get() = prefs.getLong("last_attempt_at", 0)
         set(v) = prefs.edit().putLong("last_attempt_at", v).apply()
 
+    /** Nap Stop alarm time (0 = none). */
+    var napAt: Long
+        get() = prefs.getLong("nap_at", 0)
+        set(v) = prefs.edit().putLong("nap_at", v).apply()
+
+    enum class NapSound { HORN, PHONE }
+
+    var napSound: NapSound
+        get() = runCatching { NapSound.valueOf(prefs.getString("nap_sound", null)!!) }.getOrDefault(NapSound.HORN)
+        set(v) = prefs.edit().putString("nap_sound", v.name).apply()
+
     /** The device certificate you picked for CN, reused by background refreshes. */
     var certAlias: String?
         get() = prefs.getString("cert_alias", null)

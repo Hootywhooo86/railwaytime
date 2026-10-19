@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <TextView
+            style="@style/Pixel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="NAP STOP"
+            android:textColor="@color/orange"
+            android:textSize="28sp" />
+
+        <TextView
+            style="@style/Pixel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:text="next stop: wide awake"
+            android:textColor="@color/teal"
+            android:textSize="10sp" />
+
+        <app.railwaytime.PixelClockView
+            android:id="@+id/nap_clock"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp" />
+
+        <TextView
+            style="@style/Pixel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:text="RAILTIME"
+            android:textColor="@color/muted"
+            android:textSize="9sp" />
+
+        <!-- Next stop -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/pixel_panel"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <TextView
+                style="@style/Pixel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="NEXT STOP"
+                android:textColor="@color/teal"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/nap_next"
+                style="@style/Pixel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@color/orange"
+                android:textSize="36sp" />
+
+            <TextView
+                android:id="@+id/nap_next_sub"
+                style="@style/Pixel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:gravity="center"
+                android:textColor="@color/muted"
+                android:textSize="9sp" />
+        </LinearLayout>
+
+        <TextView
+            style="@style/Pixel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:text="NAP FOR…"
+            android:textColor="@color/teal"
+            android:textSize="11sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/nap_20" style="@style/PixelButton" android:text="20" />
+            <Button android:id="@+id/nap_30" style="@style/PixelButton" android:text="30" />
+            <Button android:id="@+id/nap_45" style="@style/PixelButton" android:text="45" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button android:id="@+id/nap_60" style="@style/PixelButton" android:text="1 HR" />
+            <Button android:id="@+id/nap_90" style="@style/PixelButton" android:text="90" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/nap_pick"
+            style="@style/PixelButtonWide"
+            android:layout_marginTop="12dp"
+            android:text="SET A TIME…" />
+
+        <Button
+            android:id="@+id/nap_cancel"
+            style="@style/PixelButtonWide"
+            android:text="CANCEL THIS STOP"
+            android:visibility="gone" />
+
+        <TextView
+            style="@style/Pixel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:text="WHISTLE"
+            android:textColor="@color/teal"
+            android:textSize="11sp" />
+
+        <Button
+            android:id="@+id/nap_sound"
+            style="@style/PixelButtonWide"
+            android:layout_marginTop="8dp" />
+
+        <Button
+            android:id="@+id/nap_test"
+            style="@style/PixelButtonWide"
+            android:text="TEST HORN" />
+
+        <TextView
+            android:id="@+id/nap_warn"
+            style="@style/Pixel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:lineSpacingExtra="6dp"
+            android:textColor="@color/pink"
+            android:textSize="9sp"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/nap_fix"
+            style="@style/PixelButtonWide"
+            android:layout_marginTop="8dp"
+            android:text="FIX ALARM SETTINGS"
+            android:visibility="gone" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:layout_marginBottom="12dp"
+            android:lineSpacingExtra="3dp"
+            android:text="Rings with the screen off and the app closed, through Android's alarm clock (you'll see ⏰ in the status bar). Times are railtime. Snooze is 10 minutes; it stops by itself after 10 minutes of ringing."
+            android:textColor="@color/muted"
+            android:textSize="12sp" />
+    </LinearLayout>
+</ScrollView>

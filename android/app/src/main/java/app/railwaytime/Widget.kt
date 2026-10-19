@@ -138,6 +138,10 @@ object Widget {
         v.setString(R.id.rail_clock, "setTimeZone", RailClock.railZoneId(settings, Instant.now()))
         v.setString(R.id.local_clock, "setTimeZone", settings.homeZone.id)
         v.setTextViewText(R.id.local_label, "LOCAL · " + settings.homeZone.shortName())
+        // Nap Stop set? Show it next to the label.
+        v.setTextViewText(R.id.rail_label, store.napAt.takeIf { it > System.currentTimeMillis() }?.let {
+            "RAILTIME  ⏰ " + DayTime.clock(app.railwaytime.core.NapTime.railtimeOf(settings, Instant.ofEpochMilli(it)))
+        } ?: "RAILTIME")
 
         val open = PendingIntent.getActivity(
             context, 0, Intent(context, MainActivity::class.java),
