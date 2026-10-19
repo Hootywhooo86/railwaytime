@@ -260,6 +260,9 @@ class Board1935Test {
         assertEquals(listOf("R W", "DML", "YOU"), p.assignments.map { it.who })
         assertEquals(2, p.goBeforeYou)
         assertEquals("G81741", p.myTrain!!.train.symbol)
+        // Shown around it on the widget: one train before, two after.
+        assertEquals("SK79151", p.trainBefore!!.symbol)
+        assertEquals(listOf("U71151", "U72551"), p.trainsAfter.map { it.symbol })
     }
 }
 

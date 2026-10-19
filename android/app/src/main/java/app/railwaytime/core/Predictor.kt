@@ -32,6 +32,10 @@ data class Prediction(
     val goBeforeYou: Int,
     /** When the lineup runs out first: how many more trains until your turn. */
     val trainsBeyondLineup: Int,
+    /** The train just before yours in the lineup (crews aren't always called in order). */
+    val trainBefore: PoolTrain? = null,
+    /** The two trains just after yours in the lineup. */
+    val trainsAfter: List<PoolTrain> = emptyList(),
 )
 
 /**
@@ -84,7 +88,13 @@ object Predictor {
         }
 
         val stillAhead = queue.takeWhile { !it.isMe }.count { it.freeAt != null }
+        // Neighbours of your train among the trains not yet called, in planned order.
+        val open = snapshot.trains.sortedBy { it.planned }.filter { !it.planned.minusMinutes(callLeadMinutes).isBefore(now) }
+        val mineAt = mine?.let { m -> open.indexOfFirst { it == m.train } } ?: -1
+
         return Prediction(
+            trainBefore = if (mineAt > 0) open[mineAt - 1] else null,
+            trainsAfter = if (mineAt >= 0) open.drop(mineAt + 1).take(2) else emptyList(),
             myPosition = myPos,
             ahead = ahead,
             availableAhead = ahead.count { !it.spare && it.available },

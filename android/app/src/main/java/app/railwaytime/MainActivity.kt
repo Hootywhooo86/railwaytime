@@ -101,7 +101,12 @@ class MainActivity : Activity() {
             "Your rest: ${s.rest} (${s.restSub})",
             "Next off rest: ${s.next} (${s.nextSub})",
         ).joinToString("\n")
-        findViewById<TextView>(R.id.train).text = "${s.train}\n${s.trainSub}"
+        findViewById<TextView>(R.id.train).text = listOfNotNull(
+            s.trainBefore?.let { "   $it" },
+            s.train,
+            s.trainSub,
+            *s.trainsAfter.map { "   $it" }.toTypedArray(),
+        ).joinToString("\n")
 
         val p = s.prediction
         val snapshot = store.snapshot()

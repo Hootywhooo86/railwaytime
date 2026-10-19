@@ -177,6 +177,8 @@
             android:orientation="vertical">
 
             <TextView style="@style/WidgetLabel" android:text="LIKELY TRAIN" />
+            <!-- The train before yours: crews aren't always called in order. -->
+            <TextView android:id="@+id/v_train_prev" style="@style/WidgetNeighbour" android:layout_marginTop="3dp" />
             <TextView
                 android:id="@+id/v_train"
                 android:layout_width="match_parent"
@@ -187,6 +189,9 @@
                 android:textColor="@color/orange"
                 android:textSize="20sp" />
             <TextView android:id="@+id/v_train_sub" style="@style/WidgetSub" />
+            <!-- The two trains after yours. -->
+            <TextView android:id="@+id/v_train_next1" style="@style/WidgetNeighbour" android:layout_marginTop="4dp" />
+            <TextView android:id="@+id/v_train_next2" style="@style/WidgetNeighbour" />
         </LinearLayout>
     </LinearLayout>
 

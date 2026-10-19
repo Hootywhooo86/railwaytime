@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.view.View
 import android.widget.RemoteViews
 import app.railwaytime.core.DayTime
+import app.railwaytime.core.PoolTrain
 import app.railwaytime.core.Prediction
 import app.railwaytime.core.Predictor
 import app.railwaytime.core.RailClock
@@ -30,6 +31,9 @@ data class Summary(
     val nextSub: String = "",
     val train: String = "No board yet",
     val trainSub: String = "Tap to sign in to IVRM",
+    /** Small lines around the likely train: one before, two after. */
+    val trainBefore: String? = null,
+    val trainsAfter: List<String> = emptyList(),
     val updated: String,
     val needsAttention: Boolean,
     val prediction: Prediction? = null,
@@ -37,12 +41,17 @@ data class Summary(
     companion object {
         private const val STALE_MS = 60 * 60_000L
 
+        /** "SK79151 · Plan 02:00 · Call 00:00" */
+        private fun neighbour(t: PoolTrain, callLead: Long): String =
+            "${t.symbol} · ${t.statusWord} ${DayTime.clock(t.planned)} · Call ${DayTime.clock(t.planned.minusMinutes(callLead))}"
+
         fun build(context: Context): Summary {
             val store = Store(context)
             val settings = store.settings
             val instant = Instant.now()
             val now = RailClock.boardNow(settings, instant)
-            val p = store.snapshot()?.let { Predictor.predict(it, now, settings.callLeadMin.toLong()) }
+            val lead = settings.callLeadMin.toLong()
+            val p = store.snapshot()?.let { Predictor.predict(it, now, lead) }
 
             val updatedAt = store.fetchedAt.takeIf { it > 0 }?.let {
                 DayTime.clock(LocalDateTime.ofInstant(Instant.ofEpochMilli(it), settings.homeZone))
@@ -83,6 +92,8 @@ data class Summary(
                 trainSub = mine?.let {
                     "${DayTime.dayWord(now, it.train.planned)} · Call ${DayTime.clock(it.orderAt)} · ${DayTime.until(now, it.orderAt)}"
                 } ?: "${p.trainsBeyondLineup} more train(s) needed to reach you",
+                trainBefore = p.trainBefore?.let { neighbour(it, lead) },
+                trainsAfter = p.trainsAfter.map { neighbour(it, lead) },
                 updated = updated,
                 needsAttention = attention,
                 prediction = p,
@@ -183,6 +194,13 @@ object Widget {
         v.setTextViewText(R.id.v_next_sub, s.nextSub)
         v.setTextViewText(R.id.v_train, s.train)
         v.setTextViewText(R.id.v_train_sub, s.trainSub)
+        fun small(id: Int, text: String?) {
+            v.setTextViewText(id, text.orEmpty())
+            v.setViewVisibility(id, if (text == null) View.GONE else View.VISIBLE)
+        }
+        small(R.id.v_train_prev, s.trainBefore)
+        small(R.id.v_train_next1, s.trainsAfter.getOrNull(0))
+        small(R.id.v_train_next2, s.trainsAfter.getOrNull(1))
         v.setTextColor(R.id.v_train, if (s.prediction?.myTrain != null) ORANGE else Color.WHITE)
         v.setTextViewText(R.id.line_updated, s.updated)
         v.setTextColor(R.id.line_updated, if (s.needsAttention) PINK else MUTED)
