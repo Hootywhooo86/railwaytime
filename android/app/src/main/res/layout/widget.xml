@@ -137,7 +137,7 @@
             <LinearLayout style="@style/WidgetTile" android:layout_weight="0.95">
                 <TextView style="@style/WidgetLabel" android:text="BEFORE YOU" />
                 <TextView android:id="@+id/v_before" style="@style/WidgetValue" />
-                <TextView style="@style/WidgetSub" android:text="ordered first" />
+                <TextView style="@style/WidgetSub" android:text="called first" />
             </LinearLayout>
         </LinearLayout>
 
@@ -183,7 +183,7 @@
                 android:fontFamily="sans-serif-medium"
                 android:maxLines="1"
                 android:textColor="@color/orange"
-                android:textSize="22sp" />
+                android:textSize="20sp" />
             <TextView android:id="@+id/v_train_sub" style="@style/WidgetSub" />
         </LinearLayout>
     </LinearLayout>

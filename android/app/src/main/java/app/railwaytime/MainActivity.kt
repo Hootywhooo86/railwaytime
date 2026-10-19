@@ -92,7 +92,7 @@ class MainActivity : Activity() {
             if (store.status == Store.Status.ERROR) "${s.updated}\nWhy: ${store.statusDetail.orEmpty()}" else s.updated
         findViewById<TextView>(R.id.summary).text = if (!s.hasBoard) "No board yet" else listOf(
             "Position ${s.position} · ${s.ahead} ahead (${s.aheadSub})",
-            "${s.beforeYou} likely ordered before you",
+            "${s.beforeYou} likely called before you",
             "Your rest: ${s.rest} (${s.restSub})",
             "Next off rest: ${s.next} (${s.nextSub})",
         ).joinToString("\n")
@@ -100,10 +100,12 @@ class MainActivity : Activity() {
 
         val p = s.prediction
         val snapshot = store.snapshot()
-        findViewById<TextView>(R.id.order).text = p?.assignments?.joinToString("\n") { a ->
-            "%-11s %s  ord %s  → %s".format(
-                a.train.label, DayTime.format(a.train.planned), DayTime.clock(a.orderAt),
+        findViewById<TextView>(R.id.order).text = p?.assignments?.joinToString("\n\n") { a ->
+            "%-11s → %s\n  Planned %s · Call %s".format(
+                a.train.label,
                 if (a.isMe) "YOU" else a.who ?: "behind you",
+                DayTime.format(a.train.planned),
+                DayTime.clock(a.orderAt),
             )
         }?.ifEmpty { "No upcoming trains in the pool lineup" } ?: "—"
         findViewById<TextView>(R.id.board).text = snapshot?.board?.joinToString("\n") { e ->

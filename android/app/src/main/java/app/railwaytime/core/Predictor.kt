@@ -28,14 +28,14 @@ data class Prediction(
     val myRestUntil: LocalDateTime?,
     val assignments: List<Assignment>,
     val myTrain: Assignment?,
-    /** How many people are expected to be ordered before you. */
+    /** How many people are expected to be called before you. */
     val goBeforeYou: Int,
     /** When the lineup runs out first: how many more trains until your turn. */
     val trainsBeyondLineup: Int,
 )
 
 /**
- * Walks the pool lineup in order. Each train is ordered [callLeadMinutes] before its planned
+ * Walks the pool lineup in order. Each train is called [callLeadMinutes] before its planned
  * time and goes to the first turn on the board, top down, that is off rest by then:
  *  - A0: available now.
  *  - HT: holds the turn but doesn't go until the Return time; a train can pass them while
@@ -69,7 +69,8 @@ object Predictor {
         var mine: Assignment? = null
         for (train in snapshot.trains.sortedBy { it.planned }) {
             val orderAt = train.planned.minusMinutes(callLeadMinutes)
-            if (orderAt.isBefore(now)) continue
+            // Already called (IVRM shows "Ordered"), or its call time has passed: already crewed.
+            if (orderAt.isBefore(now) || train.status.equals("Ordered", ignoreCase = true)) continue
             val c = queue.firstOrNull { it.freeBy(orderAt) }
             val a = Assignment(train, orderAt, c?.label, c?.pos, c?.isMe == true)
             assignments += a

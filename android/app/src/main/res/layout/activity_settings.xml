@@ -33,7 +33,7 @@
 
         <TextView style="@style/Heading" android:text="BOARD" />
 
-        <TextView style="@style/Label" android:text="Ordered this many minutes before the train" />
+        <TextView style="@style/Label" android:text="Call comes this many minutes before planned" />
         <EditText android:id="@+id/set_call_lead" style="@style/Field" android:inputType="number" />
 
         <TextView style="@style/Label" android:text="Refresh every (minutes, off duty only)" />

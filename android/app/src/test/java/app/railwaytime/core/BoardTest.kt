@@ -262,3 +262,30 @@ class Board1935Test {
         assertEquals("G81741", p.myTrain!!.train.symbol)
     }
 }
+
+/** IVRM marks a train that already has a crew "Ordered"; it's never predicted for anyone. */
+class OrderedTrainTest {
+    @Test fun orderedTrainIsSkipped() {
+        val text = """
+            Sunday, October 18, 2026 11:08 PM ET
+            Rest until	18 22:50
+            Board Position	05
+            Additional Board Information
+            Pos	Init	Rest	Off St	Return
+            01	SS		** HT	19 0559
+            02	DF		** HT	19 0559
+            03	DML		A0
+            04	JB		** HT	19 0559
+            Pool Lineup
+            U76151 18	Ordered 18 19:55
+            SK79151 18	Planned 19 02:00
+            G81741 18	Planned 19 04:00
+            G84551 17	Planned 19 05:30
+        """.trimIndent()
+        val p = Predictor.predict(BoardParser.parse(text, LocalDate.of(2026, 10, 18)), LocalDateTime.of(2026, 10, 18, 21, 9), 120)
+        assertTrue(p.assignments.none { it.train.symbol == "U76151" })
+        assertEquals(listOf("DML", "YOU"), p.assignments.map { it.who })
+        assertEquals("G81741", p.myTrain!!.train.symbol)
+        assertEquals(LocalDateTime.of(2026, 10, 19, 2, 0), p.myTrain!!.orderAt)
+    }
+}
