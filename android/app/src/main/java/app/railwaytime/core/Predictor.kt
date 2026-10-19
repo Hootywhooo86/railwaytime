@@ -69,8 +69,9 @@ object Predictor {
         var mine: Assignment? = null
         for (train in snapshot.trains.sortedBy { it.planned }) {
             val orderAt = train.planned.minusMinutes(callLeadMinutes)
-            // Already called (IVRM shows "Ordered"), or its call time has passed: already crewed.
-            if (orderAt.isBefore(now) || train.status.equals("Ordered", ignoreCase = true)) continue
+            // Its call time has passed: already crewed. ("Ordered" on IVRM only means the train's
+            // time is set; the crew still isn't called until 2 h before, so that alone doesn't count.)
+            if (orderAt.isBefore(now)) continue
             val c = queue.firstOrNull { it.freeBy(orderAt) }
             val a = Assignment(train, orderAt, c?.label, c?.pos, c?.isMe == true)
             assignments += a

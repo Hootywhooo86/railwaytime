@@ -79,7 +79,7 @@ data class Summary(
                 restSub = rest?.let { whenSub(it) } ?: "ready to go",
                 next = next?.let { "${it.init} · ${DayTime.clock(it.returnAt!!)}" } ?: "—",
                 nextSub = next?.let { whenSub(it.returnAt!!) } ?: "nobody ahead resting",
-                train = mine?.let { "${it.train.symbol} · Planned ${DayTime.clock(it.train.planned)}" } ?: "Past the lineup",
+                train = mine?.let { "${it.train.symbol} · ${it.train.statusWord} ${DayTime.clock(it.train.planned)}" } ?: "Past the lineup",
                 trainSub = mine?.let {
                     "${DayTime.dayWord(now, it.train.planned)} · Call ${DayTime.clock(it.orderAt)} · ${DayTime.until(now, it.orderAt)}"
                 } ?: "${p.trainsBeyondLineup} more train(s) needed to reach you",

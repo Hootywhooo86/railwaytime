@@ -101,9 +101,10 @@ class MainActivity : Activity() {
         val p = s.prediction
         val snapshot = store.snapshot()
         findViewById<TextView>(R.id.order).text = p?.assignments?.joinToString("\n\n") { a ->
-            "%-11s → %s\n  Planned %s · Call %s".format(
+            "%-11s → %s\n  %s %s · Call %s".format(
                 a.train.label,
                 if (a.isMe) "YOU" else a.who ?: "behind you",
+                a.train.statusWord,
                 DayTime.format(a.train.planned),
                 DayTime.clock(a.orderAt),
             )

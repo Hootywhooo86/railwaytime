@@ -36,6 +36,9 @@ data class PoolTrain(
     val planned: LocalDateTime,
 ) {
     val label: String get() = "$symbol $originDay"
+
+    /** IVRM's word for the time: "Planned", or "Ordered" once the train's time is set. */
+    val statusWord: String get() = status.lowercase().replaceFirstChar { it.uppercase() }
 }
 
 data class BoardSnapshot(

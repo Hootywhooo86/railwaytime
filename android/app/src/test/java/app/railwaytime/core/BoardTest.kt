@@ -263,28 +263,48 @@ class Board1935Test {
     }
 }
 
-/** IVRM marks a train that already has a crew "Ordered"; it's never predicted for anyone. */
+/**
+ * "Ordered" on IVRM means the train's time is set, not that a crew is called: the call still
+ * comes 2 h before. Only a passed call time takes a train out.
+ */
 class OrderedTrainTest {
-    @Test fun orderedTrainIsSkipped() {
-        val text = """
-            Sunday, October 18, 2026 11:08 PM ET
-            Rest until	18 22:50
-            Board Position	05
-            Additional Board Information
-            Pos	Init	Rest	Off St	Return
-            01	SS		** HT	19 0559
-            02	DF		** HT	19 0559
-            03	DML		A0
-            04	JB		** HT	19 0559
-            Pool Lineup
+    private fun board(lineup: String) = """
+        Sunday, October 18, 2026 11:08 PM ET
+        Rest until	18 22:50
+        Board Position	05
+        Additional Board Information
+        Pos	Init	Rest	Off St	Return
+        01	SS		** HT	19 0559
+        02	DF		** HT	19 0559
+        03	DML		A0
+        04	JB		** HT	19 0559
+        Pool Lineup
+    """.trimIndent() + "\n" + lineup.trimIndent()
+
+    private val at2109 = LocalDateTime.of(2026, 10, 18, 21, 9)
+
+    @Test fun orderedButCallTimePassedIsCrewed() {
+        val text = board("""
             U76151 18	Ordered 18 19:55
             SK79151 18	Planned 19 02:00
             G81741 18	Planned 19 04:00
-            G84551 17	Planned 19 05:30
-        """.trimIndent()
-        val p = Predictor.predict(BoardParser.parse(text, LocalDate.of(2026, 10, 18)), LocalDateTime.of(2026, 10, 18, 21, 9), 120)
+        """)
+        val p = Predictor.predict(BoardParser.parse(text, LocalDate.of(2026, 10, 18)), at2109, 120)
+        // 19:55 train: call was 17:55, already crewed.
         assertTrue(p.assignments.none { it.train.symbol == "U76151" })
         assertEquals(listOf("DML", "YOU"), p.assignments.map { it.who })
+        assertEquals("G81741", p.myTrain!!.train.symbol)
+    }
+
+    @Test fun orderedButNotCalledYetStillCounts() {
+        val text = board("""
+            SK79151 18	Ordered 19 02:00
+            G81741 18	Planned 19 04:00
+        """)
+        val p = Predictor.predict(BoardParser.parse(text, LocalDate.of(2026, 10, 18)), at2109, 120)
+        // 02:00 train shows Ordered, but its call isn't until 00:00: DML still gets it.
+        assertEquals("DML", p.assignments.first { it.train.symbol == "SK79151" }.who)
+        assertEquals("Ordered", p.assignments.first().train.statusWord)
         assertEquals("G81741", p.myTrain!!.train.symbol)
         assertEquals(LocalDateTime.of(2026, 10, 19, 2, 0), p.myTrain!!.orderAt)
     }
