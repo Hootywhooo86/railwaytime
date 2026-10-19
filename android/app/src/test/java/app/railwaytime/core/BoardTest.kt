@@ -97,13 +97,15 @@ class BoardTest {
         assertEquals(7, p.ahead.size)
         assertEquals(3, p.availableAhead)
         assertEquals(4, p.spareAhead)
-        // DHT303B was ordered at 14:00, so it's already crewed. SS, DF, JDS and JB (**) have gone
-        // spare and aren't in the way: JDL, R W and DML take the next three. You're resting until
-        // 22:50, so Q10131 and G84551 (ordered 18:45, 19:00) pass you. G81741 is yours.
-        assertEquals(listOf("JDL", "R W", "DML", null, null, "YOU"), p.assignments.map { it.who })
-        assertEquals(3, p.goBeforeYou)
-        assertEquals("G81741", p.myTrain!!.train.symbol)
-        assertEquals(LocalDateTime.of(2026, 10, 18, 23, 46), p.myTrain!!.orderAt)
+        // DHT303B was ordered at 14:00, so it's already crewed. All 7 ahead go out first: the A0s and
+        // the ** spare turns (a spare works them). U72551 (ordered 07:30) comes after your 22:50 rest.
+        assertEquals(
+            listOf("SS (spare)", "DF (spare)", "JDL", "JDS (spare)", "R W", "DML", "JB (spare)", "YOU"),
+            p.assignments.map { it.who },
+        )
+        assertEquals(7, p.goBeforeYou)
+        assertEquals("U72551", p.myTrain!!.train.symbol)
+        assertEquals(LocalDateTime.of(2026, 10, 19, 7, 30), p.myTrain!!.orderAt)
     }
 
     @Test fun heldTurnKeepsItsPlace() {
@@ -112,8 +114,8 @@ class BoardTest {
             .replace("Rest until\t18 22:50", "Rest until\t19 09:00")
         val p = Predictor.predict(BoardParser.parse(text, ref), now, 120)
         assertEquals(1, p.heldAhead)
-        // SS holds the turn: trains pass while SS rests, then SS (back 19 05:59) is still ahead of you.
-        assertEquals("JDL", p.assignments.first().who)
+        // SS holds the spot: trains pass while SS rests, then SS (back 19 05:59) is still ahead of you.
+        assertEquals("DF (spare)", p.assignments.first().who)
         assertTrue(p.assignments.any { it.who == "SS" && it.train.symbol == "U71151" })
         // You're rested 19 09:00, so trains ordered before that go past you.
         assertEquals("G80951", p.myTrain!!.train.symbol)
@@ -145,11 +147,14 @@ class BoardTest {
             U72551 19	Planned 19 09:30
         """.trimIndent()
         val p = Predictor.predict(BoardParser.parse(live, ref), LocalDateTime.of(2026, 10, 18, 16, 55), 120)
-        // SS, DF and JB (**) have gone spare; the four A0 go first.
-        assertEquals(listOf("JDL", "JDS", "R W", "DML", "YOU"), p.assignments.map { it.who })
-        assertEquals(4, p.goBeforeYou)
-        assertEquals("G84551", p.myTrain!!.train.symbol)
-        assertEquals(LocalDateTime.of(2026, 10, 18, 23, 0), p.myTrain!!.orderAt)
+        // SS, DF and JB (**) are spare turns and go out ahead of you, with the four A0.
+        assertEquals(
+            listOf("SS (spare)", "DF (spare)", "JDL", "JDS", "R W", "DML", "JB (spare)", "YOU"),
+            p.assignments.map { it.who },
+        )
+        assertEquals(7, p.goBeforeYou)
+        assertEquals("U72551", p.myTrain!!.train.symbol)
+        assertEquals(LocalDateTime.of(2026, 10, 19, 7, 30), p.myTrain!!.orderAt)
         assertEquals("SS", p.nextBack!!.init)
     }
 

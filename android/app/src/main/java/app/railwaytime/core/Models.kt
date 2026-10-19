@@ -20,7 +20,7 @@ data class BoardEntry(
     val restUntil: LocalDateTime?,
     /** Off-status code without the "**" marker, e.g. "A0" or "HT". */
     val offStatus: String,
-    /** "**" in Off St: gone spare — out of the pool, not in your way (whatever follows the **). */
+    /** "**" in Off St: spare turn — a spare works it, so it goes out ahead of you (whatever follows the **). */
     val spare: Boolean,
     val returnAt: LocalDateTime?,
 ) {

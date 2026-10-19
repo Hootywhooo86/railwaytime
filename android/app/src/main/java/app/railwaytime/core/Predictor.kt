@@ -21,7 +21,7 @@ data class Prediction(
     val availableAhead: Int,
     /** HT ahead of you, still on rest: they hold their turn and go once rested. */
     val heldAhead: Int,
-    /** "**" ahead of you: gone spare, not in the pool, so not in your way. */
+    /** "**" ahead of you: spare turns, which go out ahead of you. */
     val spareAhead: Int,
     /** The next person ahead of you to come off rest (earliest Return time still to come). */
     val nextBack: BoardEntry?,
@@ -40,7 +40,7 @@ data class Prediction(
  *  - A0: available now.
  *  - HT: holds the turn but doesn't go until the Return time; a train can pass them while
  *    they rest and they're still ahead of you after.
- *  - **: gone spare — out of the pool, so not in your way.
+ *  - **: spare turn — a spare works it, so it goes out ahead of you, starting now.
  *  - You: off rest at "Rest until"; a train that comes up before that passes you.
  * Trains whose order time has already passed are treated as already crewed.
  */
@@ -54,9 +54,13 @@ object Predictor {
         val ahead = snapshot.board.filter { myPos == null || it.pos < myPos }
         val myRest = snapshot.cats.restUntil
 
-        val queue = ahead.filter { !it.spare }.map { e ->
-            val freeAt = if (e.available) maxOf(now, e.restUntil ?: now) else e.returnAt?.let { maxOf(now, it) }
-            Candidate(e.init, e.pos, freeAt, isMe = false)
+        val queue = ahead.map { e ->
+            val freeAt = when {
+                e.spare -> now // a spare works the turn: it goes out ahead of you, now
+                e.available -> maxOf(now, e.restUntil ?: now)
+                else -> e.returnAt?.let { maxOf(now, it) } // HT: holds the spot until rested
+            }
+            Candidate(if (e.spare) "${e.init} (spare)" else e.init, e.pos, freeAt, isMe = false)
         }.toMutableList()
         queue += Candidate("YOU", myPos, maxOf(now, myRest ?: now), isMe = true)
 
