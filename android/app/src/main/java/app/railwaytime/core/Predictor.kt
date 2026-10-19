@@ -40,7 +40,8 @@ data class Prediction(
  *  - A0: available now.
  *  - HT: holds the turn but doesn't go until the Return time; a train can pass them while
  *    they rest and they're still ahead of you after.
- *  - **: spare turn — a spare works it, so it goes out ahead of you, starting now.
+ *  - ** (on its own): spare turn — a spare works it, so it goes out ahead of you, starting now.
+ *    "** HT" is still HT: a hold turn.
  *  - You: off rest at "Rest until"; a train that comes up before that passes you.
  * Trains whose order time has already passed are treated as already crewed.
  */

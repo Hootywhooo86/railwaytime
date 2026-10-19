@@ -18,9 +18,9 @@ data class BoardEntry(
     val pos: Int,
     val init: String,
     val restUntil: LocalDateTime?,
-    /** Off-status code without the "**" marker, e.g. "A0" or "HT". */
+    /** Off-status code, e.g. "A0" or "HT" ("**" for a spare turn). */
     val offStatus: String,
-    /** "**" in Off St: spare turn — a spare works it, so it goes out ahead of you (whatever follows the **). */
+    /** Off St shows only "**": a spare turn — a spare works it, so it goes out ahead of you. "** HT" is a hold turn, not this. */
     val spare: Boolean,
     val returnAt: LocalDateTime?,
 ) {

@@ -74,11 +74,13 @@ class OcrTest {
         assertEquals(8, s.cats.boardPosition)
         assertEquals(LocalDateTime.of(2026, 10, 18, 22, 50), s.cats.restUntil)
         assertEquals(listOf("SS", "DF", "JDL", "JDS", "R W", "DML", "JB"), s.board.map { it.init })
-        assertEquals(listOf(true, true, false, true, false, false, true), s.board.map { it.spare })
+        // "** HT" is a hold turn; none of these are spare turns.
+        assertTrue(s.board.none { it.spare })
+        assertEquals(listOf("HT", "HT", "A0", "HT", "A0", "A0", "HT"), s.board.map { it.offStatus })
         assertEquals(10, s.trains.size)
 
         val p = Predictor.predict(s, LocalDateTime.of(2026, 10, 18, 15, 44))
-        assertEquals("U72551", p.myTrain!!.train.symbol)
+        assertEquals("G81741", p.myTrain!!.train.symbol)
     }
 }
 
@@ -102,9 +104,9 @@ class RealScreenshotTest {
 
         // This reader also lost JB's initials on row 07; the turn still counts.
         assertEquals(text, listOf("SS", "DF", "JDL", "JDS", "RW", "DML", "?"), s.board.map { it.init })
-        assertEquals(listOf(true, true, false, true, false, false, true), s.board.map { it.spare })
+        assertTrue(s.board.none { it.spare })
         // Row 03's "A0" wasn't read at all: no status and no return time counts as available.
-        assertTrue(s.board.filter { !it.spare }.all { it.available })
+        assertEquals(listOf("HT", "HT", "A0", "HT", "A0", "A0", "HT"), s.board.map { it.offStatus })
         assertEquals(LocalDateTime.of(2026, 10, 19, 5, 59), s.board[0].returnAt)
         assertEquals(LocalDateTime.of(2026, 10, 18, 16, 30), s.board[3].returnAt)
 
@@ -115,8 +117,8 @@ class RealScreenshotTest {
 
         val p = Predictor.predict(s, LocalDateTime.of(2026, 10, 18, 15, 44))
         assertEquals(3, p.availableAhead)
-        assertEquals(4, p.spareAhead)
+        assertEquals(0, p.spareAhead)
         assertEquals("JDS", p.nextBack!!.init)
-        assertEquals("U72551", p.myTrain!!.train.symbol)
+        assertEquals("G81741", p.myTrain!!.train.symbol)
     }
 }

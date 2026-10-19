@@ -14,7 +14,8 @@ object BoardParser {
         RegexOption.IGNORE_CASE,
     )
     private val POS = Regex("""^\d{1,3}$""")
-    private val STATUS = Regex("""^(\*{1,2})?\s*([A-Z][A-Z0-9]{1,3})$""")
+    /** Off St: a code ("A0", "HT"), possibly after "**", or "**" on its own (a spare turn). */
+    private val STATUS = Regex("""^(\*{1,2})?\s*([A-Z][A-Z0-9]{1,3})?$""")
     private const val DT = DayTime.PATTERN_SRC
 
     /**
@@ -23,7 +24,7 @@ object BoardParser {
      * Missing initials ("07 ** HT 19 0559") still count as a turn, shown as "?".
      */
     private val ROW_LINE = Regex(
-        """^(\d{1,3})(?:\s+([^*\s].*?))?(?:\s+($DT))?(?:\s+(\*{1,2})?\s*([A-Za-z][A-Za-z0-9]{1,3}))?(?:\s+($DT))?$""",
+        """^(\d{1,3})(?:\s+([^*\s].*?))?(?:\s+($DT))?(?:\s+(\*{1,2}(?:\s*[A-Za-z][A-Za-z0-9]{1,3})?|[A-Za-z][A-Za-z0-9]{1,3}))?(?:\s+($DT))?$""",
     )
 
     /** "U76151 18 Planned 18 18:30"; screenshots may read "U7615118 Planned 1818:30". */
@@ -138,36 +139,45 @@ object BoardParser {
         val pos = cells[0].toInt()
         val init = cells.getOrNull(1)?.takeUnless { DayTime.matches(it) }?.uppercase() ?: return null
         var rest: String? = null
-        var status: MatchResult? = null
+        var status: String? = null
         var ret: String? = null
         for (c in cells.drop(2)) {
-            val s = STATUS.matchEntire(c)
             when {
-                s != null && status == null -> status = s
+                status == null && STATUS.matches(c) -> status = c
                 DayTime.matches(c) && status == null -> rest = c
                 DayTime.matches(c) -> ret = c
             }
         }
-        val st = status ?: return null
+        return entry(pos, init, rest, status ?: return null, ret, ref)
+    }
+
+    private fun rowFromLine(m: MatchResult, ref: LocalDate): BoardEntry? {
+        val (pos, init, rest, status, ret) = m.destructured
+        return entry(pos.toInt(), init.trim().uppercase().ifEmpty { "?" }, rest, status, ret, ref)
+    }
+
+    /**
+     * Off St rules: the code decides. "HT" (with or without a "**" in front) is a hold turn;
+     * only "**" with no code after it is a spare turn. A screenshot that lost the code reads
+     * as A0, or HT when there's a return time.
+     */
+    private fun entry(pos: Int, init: String, rest: String?, status: String, ret: String?, ref: LocalDate): BoardEntry {
+        val returnAt = DayTime.parse(ret, ref)
+        val stars = status.takeWhile { it == '*' }
+        // Screenshots read A0 (zero) as AO (letter O).
+        val code = status.drop(stars.length).trim().uppercase().let { if (it == "AO") "A0" else it }
+        val spare = stars.isNotEmpty() && code.isEmpty()
         return BoardEntry(
             pos = pos,
             init = init,
             restUntil = DayTime.parse(rest, ref),
-            offStatus = st.groupValues[2],
-            spare = st.groupValues[1].isNotEmpty(),
-            returnAt = DayTime.parse(ret, ref),
-        )
-    }
-
-    private fun rowFromLine(m: MatchResult, ref: LocalDate): BoardEntry? {
-        val (pos, init, rest, stars, status, ret) = m.destructured
-        val returnAt = DayTime.parse(ret, ref)
-        return BoardEntry(
-            pos = pos.toInt(),
-            init = init.trim().uppercase().ifEmpty { "?" },
-            restUntil = DayTime.parse(rest, ref),
-            offStatus = status.uppercase().ifEmpty { if (returnAt != null) "HT" else "A0" },
-            spare = stars.isNotBlank(),
+            offStatus = when {
+                spare -> "**"
+                code.isNotEmpty() -> code
+                returnAt != null -> "HT"
+                else -> "A0"
+            },
+            spare = spare,
             returnAt = returnAt,
         )
     }
