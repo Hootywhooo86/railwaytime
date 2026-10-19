@@ -12,8 +12,8 @@ android {
         applicationId = "app.railwaytime"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "0.7.5"
+        versionCode = 15
+        versionName = "0.7.6"
         // Phones only: keeps the bundled text-recognition model small.
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
     }

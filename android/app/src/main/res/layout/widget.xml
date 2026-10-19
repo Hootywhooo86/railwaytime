@@ -123,7 +123,7 @@
             android:orientation="horizontal">
 
             <LinearLayout style="@style/WidgetTile" android:layout_weight="0.8">
-                <TextView style="@style/WidgetLabel" android:text="POSITION" />
+                <TextView style="@style/WidgetLabel" android:text="POS" />
                 <TextView android:id="@+id/v_position" style="@style/WidgetValue" />
                 <TextView style="@style/WidgetSub" android:text=" " />
             </LinearLayout>

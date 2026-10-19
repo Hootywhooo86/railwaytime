@@ -304,7 +304,8 @@ class OrderedTrainTest {
         val p = Predictor.predict(BoardParser.parse(text, LocalDate.of(2026, 10, 18)), at2109, 120)
         // 02:00 train shows Ordered, but its call isn't until 00:00: DML still gets it.
         assertEquals("DML", p.assignments.first { it.train.symbol == "SK79151" }.who)
-        assertEquals("Ordered", p.assignments.first().train.statusWord)
+        assertEquals("Ord", p.assignments.first().train.statusWord)
+        assertEquals("Plan", p.myTrain!!.train.statusWord)
         assertEquals("G81741", p.myTrain!!.train.symbol)
         assertEquals(LocalDateTime.of(2026, 10, 19, 2, 0), p.myTrain!!.orderAt)
     }

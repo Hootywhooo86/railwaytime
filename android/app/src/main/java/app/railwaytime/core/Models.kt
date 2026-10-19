@@ -37,8 +37,12 @@ data class PoolTrain(
 ) {
     val label: String get() = "$symbol $originDay"
 
-    /** IVRM's word for the time: "Planned", or "Ordered" once the train's time is set. */
-    val statusWord: String get() = status.lowercase().replaceFirstChar { it.uppercase() }
+    /** IVRM's word for the time, shortened to fit: "Plan" (Planned) or "Ord" (Ordered, time is set). */
+    val statusWord: String get() = when (status.lowercase()) {
+        "planned" -> "Plan"
+        "ordered" -> "Ord"
+        else -> status.lowercase().replaceFirstChar { it.uppercase() }
+    }
 }
 
 data class BoardSnapshot(
