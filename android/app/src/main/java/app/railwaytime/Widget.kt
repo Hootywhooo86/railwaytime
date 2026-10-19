@@ -31,6 +31,8 @@ data class Summary(
     val nextSub: String = "",
     val train: String = "No board yet",
     val trainSub: String = "Tap to sign in to IVRM",
+    /** CATS assignment location ("HOME", "AWAY"), or "WORKING" when CATS says so. */
+    val location: String? = null,
     /** Small lines around the likely train: one before, two after. */
     val trainBefore: String? = null,
     val trainsAfter: List<String> = emptyList(),
@@ -86,8 +88,11 @@ data class Summary(
                 beforeYou = if (mine != null) p.goBeforeYou.toString() else "${p.goBeforeYou}+",
                 rest = rest?.let { DayTime.clock(it) } ?: "Rested",
                 restSub = rest?.let { whenSub(it) } ?: "ready to go",
-                next = next?.let { "${it.init} · ${DayTime.clock(it.returnAt!!)}" } ?: "—",
-                nextSub = next?.let { whenSub(it.returnAt!!) } ?: "nobody ahead resting",
+                next = p.nextBackAt?.let { "${next!!.init} · ${DayTime.clock(it)}" } ?: "—",
+                nextSub = p.nextBackAt?.let { whenSub(it) } ?: "nobody ahead resting",
+                location = store.snapshot()?.cats?.let { c ->
+                    if (Duty.isWorking(c)) "WORKING" else c.location?.uppercase()
+                },
                 train = mine?.let { "${it.train.symbol} · ${it.train.statusWord} ${DayTime.clock(it.train.planned)}" } ?: "Past the lineup",
                 trainSub = mine?.let {
                     "${DayTime.dayWord(now, it.train.planned)} · Call ${DayTime.clock(it.orderAt)} · ${DayTime.until(now, it.orderAt)}"
@@ -194,6 +199,8 @@ object Widget {
         v.setTextViewText(R.id.v_next_sub, s.nextSub)
         v.setTextViewText(R.id.v_train, s.train)
         v.setTextViewText(R.id.v_train_sub, s.trainSub)
+        v.setTextViewText(R.id.v_location, s.location.orEmpty())
+        v.setTextColor(R.id.v_location, if (s.location == "WORKING") ORANGE else 0xFF2DD4BF.toInt())
         fun small(id: Int, text: String?) {
             v.setTextViewText(id, text.orEmpty())
             v.setViewVisibility(id, if (text == null) View.GONE else View.VISIBLE)

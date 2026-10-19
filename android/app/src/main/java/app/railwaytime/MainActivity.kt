@@ -96,7 +96,7 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.status).text =
             if (store.status == Store.Status.ERROR) "${s.updated}\nWhy: ${store.statusDetail.orEmpty()}" else s.updated
         findViewById<TextView>(R.id.summary).text = if (!s.hasBoard) "No board yet" else listOf(
-            "Position ${s.position} · ${s.ahead} ahead (${s.aheadSub})",
+            "Position ${s.position} · ${s.ahead} ahead (${s.aheadSub})" + (s.location?.let { " · $it" } ?: ""),
             "${s.beforeYou} likely called before you",
             "Your rest: ${s.rest} (${s.restSub})",
             "Next off rest: ${s.next} (${s.nextSub})",
@@ -121,7 +121,10 @@ class MainActivity : Activity() {
         }?.ifEmpty { "No upcoming trains in the pool lineup" } ?: "—"
         findViewById<TextView>(R.id.board).text = snapshot?.board?.joinToString("\n") { e ->
             val status = if (e.spare) "spare" else e.offStatus
-            val back = e.returnAt?.let { "back ${DayTime.format(it)}" } ?: ""
+            val back = listOfNotNull(
+                e.restUntil?.let { "rest ${DayTime.format(it)}" },
+                e.returnAt?.let { "back ${DayTime.format(it)}" },
+            ).joinToString(" · ")
             "%02d  %-5s %-6s %s".format(e.pos, e.init, status, back).trimEnd()
         }?.ifEmpty { "No board rows found" } ?: "—"
         findViewById<TextView>(R.id.cats).text = snapshot?.cats?.let { c ->

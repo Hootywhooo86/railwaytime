@@ -28,6 +28,7 @@ object Importer {
             return false
         }
         store.saveBoard(text, url = null)
+        Duty.checkWorking(context)
         store.log("$source: board imported")
         Widget.updateAll(context)
         return true

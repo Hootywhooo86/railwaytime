@@ -313,3 +313,53 @@ class OrderedTrainTest {
         assertEquals(LocalDateTime.of(2026, 10, 19, 2, 0), p.myTrain!!.orderAt)
     }
 }
+
+/** The live board on Oct 19 at 12:41: A0s with rest times in the Rest column. */
+class Board1241Test {
+    private val text = """
+        Monday, October 19, 2026 2:40 PM ET
+        CATS Information
+        Name	CREW MEMBER
+        CATS Status	AVAILABLE
+        Rest until	19 20:25
+        Assignment Location	Away
+        Board Position	04
+        Additional Board Information
+        Pos	Init	Rest	Off St	Return
+        01	JDS		A0
+        02	R W	19 1340	A0
+        03	DML	19 1830	A0
+        Pool Lineup
+        G83454 17	Ordered 19 15:00
+        G83451 18	Planned 19 16:31
+        G83455 17	Planned 19 19:00
+        Q10251 18	Planned 19 21:15
+        M35651 18	Planned 19 22:16
+        G84651 18	Planned 19 23:15
+        DH84651 18	Planned 19 23:15
+        G83453 18	Planned 20 00:29
+    """.trimIndent()
+
+    private val p = Predictor.predict(BoardParser.parse(text, LocalDate.of(2026, 10, 19)), LocalDateTime.of(2026, 10, 19, 12, 41), 120)
+
+    @Test fun nextOffRestUsesTheRestColumn() {
+        assertEquals("R W", p.nextBack!!.init)
+        assertEquals(LocalDateTime.of(2026, 10, 19, 13, 40), p.nextBackAt)
+    }
+
+    @Test fun restingA0WaitsForItsRest() {
+        // JDS now; R W off rest 13:40, in time for the 14:31 call; DML rests until 18:30 so the
+        // 17:00 call passes to someone behind; DML takes Q10251. M35651 is called 20:16, before
+        // your 20:25 rest ends, so it goes past you: G84651 is yours.
+        assertEquals(listOf("JDS", "R W", null, "DML", null, "YOU"), p.assignments.map { it.who })
+        assertEquals("G84651", p.myTrain!!.train.symbol)
+        assertEquals("M35651", p.trainBefore!!.symbol)
+        assertEquals(listOf("DH84651", "G83453"), p.trainsAfter.map { it.symbol })
+    }
+
+    @Test fun readsLocationAndStatus() {
+        val c = BoardParser.parse(text, LocalDate.of(2026, 10, 19)).cats
+        assertEquals("Away", c.location)
+        assertEquals("AVAILABLE", c.status)
+    }
+}

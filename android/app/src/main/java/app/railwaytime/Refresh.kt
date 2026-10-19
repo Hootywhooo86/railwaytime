@@ -61,6 +61,23 @@ import kotlin.coroutines.resume
 
 /** On duty = nothing talks to CN; the widget only shows the clocks. */
 object Duty {
+    fun isWorking(c: app.railwaytime.core.CatsInfo) = c.status?.contains("WORK", ignoreCase = true) == true
+
+    /**
+     * When CATS changes to WORKING, switch to on duty by itself (CN: no use while on duty).
+     * Only on the change, so switching back to off duty yourself sticks. Switching off is up to
+     * you: on duty nothing is fetched, so the app can't see you've finished.
+     */
+    fun checkWorking(context: Context) {
+        val store = Store(context)
+        val working = store.snapshot()?.cats?.let(::isWorking) == true
+        if (working && !store.lastWorking && !store.onDuty) {
+            store.log("CATS says WORKING — switched to on duty")
+            set(context, true)
+        }
+        store.lastWorking = working
+    }
+
     fun set(context: Context, onDuty: Boolean) {
         Store(context).onDuty = onDuty
         if (onDuty) {
@@ -211,6 +228,7 @@ object Refresher {
             when (val r = IvrmFetcher.fetch(context, store.boardUrl, store.settings)) {
                 is IvrmFetcher.Result.Board -> {
                     store.saveBoard(r.text, r.url)
+                    Duty.checkWorking(context)
                     store.log("refresh: board updated")
                 }
                 IvrmFetcher.Result.SignIn -> {

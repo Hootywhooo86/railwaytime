@@ -23,8 +23,10 @@ data class Prediction(
     val heldAhead: Int,
     /** "**" ahead of you: spare turns, which go out ahead of you. */
     val spareAhead: Int,
-    /** The next person ahead of you to come off rest (earliest Return time still to come). */
+    /** The next person ahead of you to come off rest (Rest or Return column, whichever is later). */
     val nextBack: BoardEntry?,
+    /** When [nextBack] comes off rest. */
+    val nextBackAt: LocalDateTime? = null,
     val myRestUntil: LocalDateTime?,
     val assignments: List<Assignment>,
     val myTrain: Assignment?,
@@ -88,6 +90,11 @@ object Predictor {
         }
 
         val stillAhead = queue.takeWhile { !it.isMe }.count { it.freeAt != null }
+        // Next off rest: someone still resting by the Rest column (A0 with a rest time) or Return column.
+        val nextOff = ahead.mapNotNull { e ->
+            listOfNotNull(e.restUntil, e.returnAt).maxOrNull()?.takeIf { it.isAfter(now) }?.let { e to it }
+        }.minByOrNull { it.second }
+
         // Neighbours of your train among the trains not yet called, in planned order.
         val open = snapshot.trains.sortedBy { it.planned }.filter { !it.planned.minusMinutes(callLeadMinutes).isBefore(now) }
         val mineAt = mine?.let { m -> open.indexOfFirst { it == m.train } } ?: -1
@@ -100,7 +107,8 @@ object Predictor {
             availableAhead = ahead.count { !it.spare && it.available },
             heldAhead = ahead.count { !it.spare && !it.available && (it.returnAt == null || it.returnAt.isAfter(now)) },
             spareAhead = ahead.count { it.spare },
-            nextBack = ahead.filter { it.returnAt != null && it.returnAt.isAfter(now) }.minByOrNull { it.returnAt!! },
+            nextBack = nextOff?.first,
+            nextBackAt = nextOff?.second,
             myRestUntil = myRest,
             assignments = assignments,
             myTrain = mine,

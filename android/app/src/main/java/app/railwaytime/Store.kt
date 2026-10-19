@@ -71,6 +71,11 @@ class Store(context: Context) {
         get() = prefs.getLong("last_attempt_at", 0)
         set(v) = prefs.edit().putLong("last_attempt_at", v).apply()
 
+    /** CATS said WORKING on the last board (to switch on duty only when that changes). */
+    var lastWorking: Boolean
+        get() = prefs.getBoolean("last_working", false)
+        set(v) = prefs.edit().putBoolean("last_working", v).apply()
+
     /** Nap Stop alarm time (0 = none). */
     var napAt: Long
         get() = prefs.getLong("nap_at", 0)

@@ -146,6 +146,7 @@ class IvrmActivity : Activity() {
         CnWeb.readBoard(view, stillWanted = { loads[view] == mine && view in pages && !isFinishing }, done = { text ->
             if (text != null) {
                 Store(this).saveBoard(text, view.url)
+                Duty.checkWorking(this)
                 log("board found at ${CnWeb.safeUrl(view.url)}")
                 CookieManager.getInstance().flush()
                 Widget.updateAll(this)
