@@ -41,6 +41,12 @@ class IvrmActivity : Activity() {
     private val followedFrames = mutableSetOf<String>()
     /** Bumped on every page load so only each page's latest load is read. */
     private val loads = HashMap<WebView, Int>()
+    /** Open Mobile Crew by itself once SharePoint is up (start, or after IVRM answers with an error). */
+    private var autoCrew = true
+    /** Already fell back from a failed IVRM load to SharePoint (don't loop). */
+    private var fellBack = false
+    private val handler = android.os.Handler(android.os.Looper.getMainLooper())
+    private lateinit var sharepointUrl: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,8 +60,18 @@ class IvrmActivity : Activity() {
         setUp(main)
         pages += main
 
-        findViewById<Button>(R.id.btn_ivrm).setOnClickListener { closeSecondPages(); main.loadUrl(settings.ivrmUrl) }
-        findViewById<Button>(R.id.btn_sharepoint).setOnClickListener { closeSecondPages(); main.loadUrl(settings.sharepointUrl) }
+        sharepointUrl = settings.sharepointUrl
+        findViewById<Button>(R.id.btn_ivrm).setOnClickListener {
+            closeSecondPages()
+            autoCrew = false
+            fellBack = false
+            main.loadUrl(settings.ivrmUrl)
+        }
+        findViewById<Button>(R.id.btn_sharepoint).setOnClickListener {
+            closeSecondPages()
+            autoCrew = false
+            main.loadUrl(settings.sharepointUrl)
+        }
         findViewById<Button>(R.id.btn_done).setOnClickListener { finish() }
         // Backup: open the same page in Chrome, then share a screenshot back to this app.
         findViewById<Button>(R.id.btn_chrome).setOnClickListener {
@@ -65,7 +81,9 @@ class IvrmActivity : Activity() {
             }.onFailure { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
         }
 
-        main.loadUrl(store.boardUrl ?: settings.sharepointUrl)
+        // The way that works: SharePoint (sign in if asked), then Mobile Crew, opened for you.
+        // Going straight to a saved IVRM address fails once that IVRM visit has expired.
+        main.loadUrl(settings.sharepointUrl)
     }
 
     private fun setUp(view: WebView) {
@@ -112,6 +130,7 @@ class IvrmActivity : Activity() {
             if (request.isForMainFrame) {
                 log("error ${CnWeb.safeUrl(request.url.toString())}: ${error.description} (${error.errorCode})")
                 status.text = "Couldn't load ${request.url.host}: ${error.description} (${error.errorCode})"
+                ivrmFailed(request.url.host)
             }
         }
 
@@ -119,6 +138,7 @@ class IvrmActivity : Activity() {
             if (request.isForMainFrame && response.statusCode >= 400) {
                 log("HTTP ${response.statusCode} ${CnWeb.safeUrl(request.url.toString())}")
                 status.text = "${request.url.host} answered HTTP ${response.statusCode} ${response.reasonPhrase.orEmpty()}"
+                ivrmFailed(request.url.host)
             }
         }
 
@@ -161,7 +181,46 @@ class IvrmActivity : Activity() {
                     view.loadUrl(it)
                 }
             }
+            if (autoCrew && hostOf(view.url).contains("sharepoint", ignoreCase = true)) openMobileCrew(view)
         }, forMs = 3_000)
+    }
+
+    /** Taps SharePoint's Mobile Crew link for you, waiting up to 20 s for the page to draw it. */
+    private fun openMobileCrew(view: WebView, triesLeft: Int = 40) {
+        if (!autoCrew || isFinishing || view !in pages || triesLeft == 0) return
+        status.text = "Opening Mobile Crew…"
+        view.evaluateJavascript(CnWeb.MOBILE_CREW_JS) { json ->
+            val found = runCatching { org.json.JSONObject(IvrmFetcher.decodeJs(json)) }.getOrNull()
+            when {
+                found?.has("href") == true -> {
+                    autoCrew = false
+                    log("opened Mobile Crew")
+                    view.loadUrl(found.getString("href"))
+                }
+                found?.has("clicked") == true -> {
+                    autoCrew = false
+                    log("clicked Mobile Crew")
+                }
+                else -> handler.postDelayed({ openMobileCrew(view, triesLeft - 1) }, 500)
+            }
+        }
+    }
+
+    /**
+     * IVRM answered with an error (seen as "Web page not available … ERR_HTTP_RESPONSE_CODE_FAILURE"):
+     * the saved IVRM visit has expired. Start a fresh one the way Chrome effectively does —
+     * SharePoint → Mobile Crew — once, so it can't loop.
+     */
+    private fun ivrmFailed(host: String?) {
+        if (host?.contains("ivrm", ignoreCase = true) != true || fellBack) return
+        fellBack = true
+        log("IVRM answered with an error — going via SharePoint → Mobile Crew")
+        status.text = "IVRM visit expired — going via SharePoint → Mobile Crew…"
+        handler.post {
+            closeSecondPages()
+            autoCrew = true
+            pages.first().loadUrl(sharepointUrl)
+        }
     }
 
     private fun closePage(view: WebView) {

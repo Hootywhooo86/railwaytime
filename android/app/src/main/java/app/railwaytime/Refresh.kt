@@ -25,6 +25,7 @@ import android.webkit.HttpAuthHandler
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -447,7 +448,16 @@ object IvrmFetcher {
                             }
 
                             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                                if (request.isForMainFrame) lastError = "${request.url.host}: ${error.description}"
+                                if (!request.isForMainFrame) return
+                                lastError = "${request.url.host}: ${error.description}"
+                                // Saved IVRM address failing: don't wait, go via SharePoint.
+                                if (!followMobileCrew && cont.isActive) cont.resume(Result.Failed(lastError!!))
+                            }
+
+                            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                                if (!request.isForMainFrame || response.statusCode < 400) return
+                                lastError = "${request.url.host} answered HTTP ${response.statusCode}"
+                                if (!followMobileCrew && cont.isActive) cont.resume(Result.Failed(lastError!!))
                             }
 
                             override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: SslError) {
