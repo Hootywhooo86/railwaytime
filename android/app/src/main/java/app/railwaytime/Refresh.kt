@@ -210,6 +210,7 @@ class AlarmReceiver : BroadcastReceiver() {
 /** One refresh: load the board and save it, or record why not. Shared by the service and the worker. */
 object Refresher {
     private const val SIGNED_OUT_RETRY_MS = 30 * 60_000L
+    private const val BLOCKED_RETRY_MS = 3 * 60 * 60_000L
 
     suspend fun run(context: Context, manual: Boolean, via: String) {
         val store = Store(context)
@@ -219,6 +220,14 @@ object Refresher {
             System.currentTimeMillis() - store.statusAt < SIGNED_OUT_RETRY_MS
         if (signedOutRecently && !manual) {
             store.log("refresh skipped ($via): signed out, retrying every 30 min")
+            return
+        }
+        // Blocked by CN: don't keep knocking (repeated refusals show up in their logs). Look again
+        // every 3 hours, or when you tap refresh.
+        val blockedRecently = store.status == Store.Status.BLOCKED &&
+            System.currentTimeMillis() - store.statusAt < BLOCKED_RETRY_MS
+        if (blockedRecently && !manual) {
+            store.log("refresh skipped ($via): IVRM blocking the app, retrying every 3 h")
             return
         }
         store.lastAttemptAt = System.currentTimeMillis()
@@ -239,6 +248,10 @@ object Refresher {
                 is IvrmFetcher.Result.Failed -> {
                     store.setStatus(Store.Status.ERROR, r.reason)
                     store.log("refresh failed: ${r.reason}")
+                }
+                IvrmFetcher.Result.Blocked -> {
+                    store.setStatus(Store.Status.BLOCKED, "IVRM refused the app's browser (403) — CN only lets approved browsers like Chrome in. Use UPDATE FROM CHROME.")
+                    store.log("refresh: IVRM answered 403 (blocked) — pausing automatic refresh")
                 }
             }
         } finally {
@@ -337,6 +350,9 @@ object IvrmFetcher {
     sealed interface Result {
         data class Board(val text: String, val url: String?) : Result
         data object SignIn : Result
+
+        /** IVRM answered 403 Forbidden: CN's security won't let this browser in. */
+        data object Blocked : Result
         data class Failed(val reason: String) : Result
     }
 
@@ -386,8 +402,9 @@ object IvrmFetcher {
         if (boardUrl != null) {
             quickFetch(context, boardUrl)?.let { return it }
             val direct = browse(context, boardUrl, followMobileCrew = false, timeoutMs = 30_000)
-            if (direct !is Result.Failed) return direct
-            store.log("refresh: saved IVRM page didn't show the board (${direct.reason}); going via SharePoint")
+            if (direct !is Result.Failed && direct != Result.Blocked) return direct
+            val why = if (direct is Result.Failed) direct.reason else "IVRM answered 403"
+            store.log("refresh: saved IVRM page didn't show the board ($why); going via SharePoint")
         }
         return browse(context, settings.sharepointUrl, followMobileCrew = true, timeoutMs = 75_000)
     }
@@ -403,6 +420,7 @@ object IvrmFetcher {
             var lastUrl: String? = null
             var lastError: String? = null
             var lastText = ""
+            var ivrmForbidden = false
             try {
                 val result = withTimeoutOrNull(timeoutMs) {
                     suspendCancellableCoroutine { cont ->
@@ -457,6 +475,12 @@ object IvrmFetcher {
                             override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
                                 if (!request.isForMainFrame || response.statusCode < 400) return
                                 lastError = "${request.url.host} answered HTTP ${response.statusCode}"
+                                // IVRM itself saying 403 Forbidden: stop here, it won't let this browser in.
+                                if (response.statusCode == 403 && request.url.host?.contains("ivrm", ignoreCase = true) == true) {
+                                    ivrmForbidden = true
+                                    if (cont.isActive) cont.resume(Result.Blocked)
+                                    return
+                                }
                                 if (!followMobileCrew && cont.isActive) cont.resume(Result.Failed(lastError!!))
                             }
 
@@ -526,6 +550,7 @@ object IvrmFetcher {
                     }
                 }
                 result ?: when {
+                    ivrmForbidden -> Result.Blocked
                     isSignInUrl(lastUrl) -> Result.SignIn
                     else -> Result.Failed(
                         lastError ?: buildString {

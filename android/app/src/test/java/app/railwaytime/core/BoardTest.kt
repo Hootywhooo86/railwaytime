@@ -363,3 +363,40 @@ class Board1241Test {
         assertEquals("AVAILABLE", c.status)
     }
 }
+
+/** The real page text the app read on Oct 22 (name replaced), spacing as IVRM sends it. */
+class RealPageOct22Test {
+    private val text = listOf(
+        "     Mobile Crew Inquiry", " ", " Refresh ", "Mobile Crew Inquiry", " ",
+        "Thursday, October 22, 2026 1:34 PM ET", " ", " CATS Information", " ",
+        "My current CATS information:", " ", "Name ", " ", "CREW MEMBER ", " ", "Terminal", " ", "24 EM", " ",
+        "CATS Status", " ", "AVAILABLE", " ", "Rest until", " ", "22 14:55", " ", "Current Assignment", " ",
+        "24 EM EPEP20 EN ", " ", "Assignment Location", " ", "Away", " ", "Board Position", " ", "04", " ",
+        " Additional Board Information ", " ", "Employee Status", " ", "Pos", " ", "Init", " ", "Rest", " ",
+        "Off St", " ", "Return", " ", "01", " ", "JB", " ", "", " ", "A0", " ", "", " ", "02", " ", "GRS", " ",
+        "", " ", "A0", " ", "03", " ", "YB", " ", "", " ", "A0", " ", "No records to display.", " ",
+        " Pool Lineup", " ", "My Pool Lineup:", " ", " G83454 20", " ", "Ordered 22 13:30", " ",
+        "DH83454 20", " ", "Ordered 22 13:30", " ", " A41651 21", " ", "Ordered 22 13:45", " ",
+        " G81051 21", " ", "Planned 22 16:31", " ", " U71052 21", " ", "Planned 22 19:00", " ",
+        " G83452 21", " ", "Planned 22 19:15", " ", " S77451 22", " ", "Planned 22 20:00", " ",
+        " Train Lineup", " ", "87950 / EDMONTON WALKER YARD ", " ", " Terminal Lineup",
+    ).joinToString("\n")
+
+    @Test fun readsIt() {
+        val s = BoardParser.parse(text, LocalDate.of(2026, 1, 1))
+        assertEquals(4, s.cats.boardPosition)
+        assertEquals("Away", s.cats.location)
+        assertEquals(LocalDateTime.of(2026, 10, 22, 14, 55), s.cats.restUntil)
+        assertEquals(listOf("JB", "GRS", "YB"), s.board.map { it.init })
+        assertTrue(s.board.all { it.available })
+        assertEquals(7, s.trains.size)
+        assertEquals("Ord", s.trains.first().statusWord)
+
+        // At 11:34 MDT: G83454/DH83454 (call 11:30) are crewed. A41651 (Ord 13:45, call 11:45) is
+        // still open: JB, GRS and YB take A41651, G81051, U71052; G83452 is yours.
+        val p = Predictor.predict(s, LocalDateTime.of(2026, 10, 22, 11, 34), 120)
+        assertEquals(listOf("JB", "GRS", "YB", "YOU"), p.assignments.map { it.who })
+        assertEquals("A41651", p.assignments.first().train.symbol)
+        assertEquals("G83452", p.myTrain!!.train.symbol)
+    }
+}

@@ -34,6 +34,7 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.btn_signin).setOnClickListener { startActivity(Intent(this, IvrmActivity::class.java)) }
         findViewById<Button>(R.id.btn_settings).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         findViewById<Button>(R.id.btn_share).setOnClickListener { shareDebug() }
+        findViewById<Button>(R.id.btn_chrome_update).setOnClickListener { updateFromChrome() }
         findViewById<Button>(R.id.btn_nap).setOnClickListener { startActivity(Intent(this, NapActivity::class.java)) }
         findViewById<Button>(R.id.btn_refresh).setOnClickListener {
             Store(this).refreshing = true
@@ -94,7 +95,9 @@ class MainActivity : Activity() {
 
         val s = Summary.build(this)
         findViewById<TextView>(R.id.status).text =
-            if (store.status == Store.Status.ERROR) "${s.updated}\nWhy: ${store.statusDetail.orEmpty()}" else s.updated
+            if (store.status == Store.Status.ERROR || store.status == Store.Status.BLOCKED) {
+                "${s.updated}\nWhy: ${store.statusDetail.orEmpty()}"
+            } else s.updated
         findViewById<TextView>(R.id.summary).text = if (!s.hasBoard) "No board yet" else listOf(
             "Position ${s.position} · ${s.ahead} ahead (${s.aheadSub})" + (s.location?.let { " · $it" } ?: ""),
             "${s.beforeYou} likely called before you",
@@ -144,6 +147,27 @@ class MainActivity : Activity() {
             Importer.toast(this, ok)
             render()
         }
+    }
+
+    /**
+     * When CN won't let the app's browser in: open IVRM in Chrome (an approved browser) and send
+     * the board back here — the text by Share, or a screenshot.
+     */
+    private fun updateFromChrome() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Update from Chrome")
+            .setMessage(
+                "1. In Chrome, open CATS Information, Additional Board Information and Pool Lineup (tap each one).\n\n" +
+                    "2. Long-press any text → Select all → Share → Railway Time board.\n\n" +
+                    "Or take a screenshot with those open → Share → Railway Time board.",
+            )
+            .setPositiveButton("Open IVRM in Chrome") { _, _ ->
+                val uri = Uri.parse(Store(this).settings.ivrmUrl)
+                runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage("com.android.chrome")) }
+                    .onFailure { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     /** Sign-in steps and the last page text, to send over if something doesn't work. No passwords or cookies. */

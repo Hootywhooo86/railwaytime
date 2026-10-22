@@ -143,6 +143,12 @@
             android:text="Sign in / refresh from IVRM" />
 
         <Button
+            android:id="@+id/btn_chrome_update"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Update from Chrome" />
+
+        <Button
             android:id="@+id/btn_screenshot"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

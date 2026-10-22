@@ -212,7 +212,12 @@ class IvrmActivity : Activity() {
      * SharePoint → Mobile Crew — once, so it can't loop.
      */
     private fun ivrmFailed(host: String?) {
-        if (host?.contains("ivrm", ignoreCase = true) != true || fellBack) return
+        if (host?.contains("ivrm", ignoreCase = true) != true) return
+        if (fellBack) {
+            // Even a fresh visit from SharePoint is refused: CN's security doesn't let this browser in.
+            status.text = "CN is blocking this in-app browser (403). Use UPDATE FROM CHROME on the main screen."
+            return
+        }
         fellBack = true
         log("IVRM answered with an error — going via SharePoint → Mobile Crew")
         status.text = "IVRM visit expired — going via SharePoint → Mobile Crew…"

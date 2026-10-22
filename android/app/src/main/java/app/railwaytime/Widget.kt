@@ -61,6 +61,7 @@ data class Summary(
             val stale = store.fetchedAt > 0 && System.currentTimeMillis() - store.fetchedAt > STALE_MS
             val updated = if (store.refreshing) "Refreshing…" else when (store.status) {
                 Store.Status.SIGN_IN -> "Signed out of CN · tap to sign in"
+                Store.Status.BLOCKED -> "CN blocking app access · update via Chrome"
                 Store.Status.ERROR -> "Couldn't refresh · last ${updatedAt ?: "never"}"
                 else -> if (updatedAt == null) "Not loaded yet" else "Updated $updatedAt" + if (stale) " · old" else ""
             } + if (store.refreshing) "" else {
@@ -69,7 +70,8 @@ data class Summary(
                 }.orEmpty()
                 "$next  ⟳"
             }
-            val attention = store.status == Store.Status.SIGN_IN || store.status == Store.Status.ERROR || updatedAt == null || stale
+            val attention = store.status in listOf(Store.Status.SIGN_IN, Store.Status.ERROR, Store.Status.BLOCKED) ||
+                updatedAt == null || stale
             if (p == null) return Summary(hasBoard = false, updated = updated, needsAttention = attention)
 
             fun whenSub(t: LocalDateTime) = "${DayTime.dayWord(now, t)} · ${DayTime.until(now, t)}"

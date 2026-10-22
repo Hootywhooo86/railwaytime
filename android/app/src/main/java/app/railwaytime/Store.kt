@@ -11,7 +11,8 @@ import java.time.LocalDateTime
 class Store(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("railwaytime", Context.MODE_PRIVATE)
 
-    enum class Status { NONE, OK, SIGN_IN, ERROR }
+    /** BLOCKED: IVRM refuses the app's browser (HTTP 403) — CN's security only lets approved browsers in. */
+    enum class Status { NONE, OK, SIGN_IN, ERROR, BLOCKED }
 
     var onDuty: Boolean
         get() = prefs.getBoolean("on_duty", false)
