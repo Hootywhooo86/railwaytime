@@ -378,6 +378,7 @@
   <div class="setrow"><span>Nightstand colour<small>Night red is easiest on sleepy eyes</small></span><select id="nsColor"><option value="accent">Main colour</option><option value="red">Night red</option><option value="white">Soft white</option></select></div>
   <div class="setrow"><span>Sunrise glow<small>The nightstand screen warms up over the 15 minutes before an alarm</small></span><button class="tog" id="glowTog" aria-label="Sunrise glow"></button></div>
   <div class="setrow" id="appRow"></div>
+  <div class="setrow" id="dndRow" style="display:none"></div>
   <div class="btns"><button class="pxbtn go" id="setDone">DONE</button></div>
 </div></div>
 
@@ -421,9 +422,11 @@ const SOUNDS = {
   'Sunrise': [[523, .25, 'tri'], [659, .25, 'tri'], [784, .25, 'tri'], [1047, .5, 'tri'], [0, .5]],
   'Rooster (8-bit)': [[700, .1], [900, .1], [1200, .25], [1000, .3], [800, .4], [0, .5]]
 };
+// Android resource names of the same sounds (android/app/src/main/res/raw).
+const SLUG = { 'Pixel chime': 'pixel_chime', 'Station bell': 'station_bell', 'Train whistle': 'train_whistle', 'Classic beep': 'classic_beep', 'Sunrise': 'sunrise', 'Rooster (8-bit)': 'rooster' };
 let loopStop = null;
 function playOnce(name, gainBoost = 1){
-  const ctx = audio(), seq = SOUNDS[name] || SOUNDS['Pixel chime'];
+  const ctx = audio(), seq = SOUNDS[name] || SOUNDS['Classic beep'];
   let t = ctx.currentTime + 0.02;
   seq.forEach(([f, d, type]) => {
     if (f){
@@ -438,8 +441,17 @@ function playOnce(name, gainBoost = 1){
   });
   return (t - ctx.currentTime) * 1000;
 }
-function startLoop(name){
-  stopLoop(); let alive = true, n = 0;
+function soundUri(o){ return o?.soundUri || (SLUG[o?.sound] ? 'raw:' + SLUG[o.sound] : ''); }
+function startLoop(name, uri){
+  stopLoop();
+  // In the Android app, ring on the alarm stream so Do Not Disturb and media volume can't mute it.
+  if (NATIVE && PS && (uri || SLUG[name])){
+    let alive = true;
+    PS.play({ uri: uri || 'raw:' + SLUG[name], loop: true }).catch(() => { if (alive) { loopStop = null; startLoop(SOUNDS[name] ? name : 'Classic beep'); } });
+    loopStop = () => { alive = false; PS.stop().catch(() => {}); };
+    return;
+  }
+  let alive = true, n = 0;
   const go = () => { if (!alive) return; const ms = playOnce(name, Math.min(1 + n++ * 0.15, 3)); setTimeout(go, ms); };
   try { go(); } catch {}
   loopStop = () => { alive = false; };
@@ -559,7 +571,8 @@ function editAlarm(a){
   $('editTitle').textContent = a ? 'EDIT ALARM' : 'NEW ALARM';
   $('eTime').value = `${pad(d.h)}:${pad(d.m)}`; $('eLabel').value = d.label;
   eDays = [...d.days]; dayButtons($('eDays'), eDays);
-  $('eSound').innerHTML = Object.keys(SOUNDS).map(s => `<option ${s === d.sound ? 'selected' : ''}>${s}</option>`).join('');
+  renderSoundList(d.soundUri || d.sound, d.sound);
+  if (NATIVE && PS && !phoneSounds) loadPhoneSounds(true).then(() => { if ($('editModal').classList.contains('open')) renderSoundList($('eSound').value); });
   $('eSnooze').value = d.snooze; eVibe = d.vibe; $('eVibe').classList.toggle('on', eVibe);
   $('eDelete').style.display = a ? '' : 'none';
   $('editModal').classList.add('open');
@@ -579,19 +592,61 @@ function rotPreview(){
   $('eRotPrev').innerHTML = Array.from({ length: 14 }, (_, i) => { const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() + i); return `<i class="${onShift(r, d) ? 'on' : ''}" title="${d.toDateString()}">${DAYS[d.getDay()]}</i>`; }).join('');
 }
 ['eOn', 'eOff', 'eStart'].forEach(id => $(id).addEventListener('input', rotPreview));
-$('ePreview').onclick = () => { try { playOnce($('eSound').value); } catch {} };
-$('eCancel').onclick = () => $('editModal').classList.remove('open');
+let previewTimer;
+$('ePreview').onclick = () => {
+  const v = $('eSound').value; clearTimeout(previewTimer);
+  if (isUri(v) && PS){ PS.play({ uri: v, loop: false }).catch(() => toast("CAN'T PLAY THAT SOUND")); previewTimer = setTimeout(() => PS.stop().catch(() => {}), 8000); return; }
+  try { playOnce(v); } catch {}
+};
+let lastSound = '';
+$('eSound').onchange = async () => {
+  if ($('eSound').value !== '__file'){ lastSound = $('eSound').value; return; }
+  try {
+    const f = await PS.pickFile();
+    const mine = store.get('mySounds', []).filter(x => x.uri !== f.uri); mine.unshift({ title: f.title, uri: f.uri }); store.set('mySounds', mine.slice(0, 30));
+    renderSoundList(f.uri); toast('SOUND ADDED');
+  } catch (e) { renderSoundList(lastSound); if (!/cancel/i.test(e.message || '')) toast("COULDN'T USE THAT FILE"); }
+};
+$('eCancel').onclick = () => { $('editModal').classList.remove('open'); PS?.stop().catch(() => {}); };
 $('editModal').onclick = e => { if (e.target === $('editModal')) $('editModal').classList.remove('open'); };
 $('eDelete').onclick = () => { alarms = alarms.filter(x => x !== editing); $('editModal').classList.remove('open'); saveAlarms(); toast('ALARM DELETED'); };
 $('eSave').onclick = () => {
   const [h, m] = ($('eTime').value || '07:00').split(':').map(Number);
-  const vals = { h, m, days: eDays, mode: eMode, rot: readRot(), label: $('eLabel').value.trim(), sound: $('eSound').value, snooze: +$('eSnooze').value, vibe: eVibe, on: true, snoozeUntil: 0, snoozes: 0, skip: 0, challenge: $('eChal').value, maxSnooze: +$('eMaxSnooze').value };
+  const vals = { h, m, days: eDays, mode: eMode, rot: readRot(), label: $('eLabel').value.trim(), ...pickedSound(), snooze: +$('eSnooze').value, vibe: eVibe, on: true, snoozeUntil: 0, snoozes: 0, skip: 0, challenge: $('eChal').value, maxSnooze: +$('eMaxSnooze').value };
   if (editing) Object.assign(editing, vals); else alarms.push({ id: Date.now(), ...vals });
   $('editModal').classList.remove('open'); saveAlarms();
   const a = editing || alarms[alarms.length - 1]; toast('ALARM IN ' + dur(a.next - Date.now()).toUpperCase());
   if (!NATIVE && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission().then(banners);
 };
 $('fab').onclick = () => editAlarm();
+
+/* ================= Sound picker: built-in chiptunes + every sound on the phone ================= */
+let phoneSounds = null, phoneFull = false;
+const isUri = v => /^(content|file|android\.resource|raw):/.test(v || '');
+async function loadPhoneSounds(ask){
+  try { const r = await PS.list({ ask }); phoneSounds = r.sounds || []; phoneFull = !!r.fullAccess; } catch { phoneSounds = []; }
+}
+function soundTitle(uri){ return [...(phoneSounds || []), ...store.get('mySounds', [])].find(x => x.uri === uri)?.title; }
+function renderSoundList(sel, selTitle){
+  const opt = (v, t) => `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(t)}</option>`;
+  const group = (label, list) => list.length ? `<optgroup label="${label}">${list.map(x => opt(x.uri, x.title)).join('')}</optgroup>` : '';
+  const ps = phoneSounds || [], mine = store.get('mySounds', []);
+  let html = `<optgroup label="🚂 Railway Time">${Object.keys(SOUNDS).map(n => opt(n, n)).join('')}</optgroup>`;
+  if (NATIVE && PS){
+    html += group('📁 My sounds', mine) + group('⏰ Phone alarms', ps.filter(x => x.type === 'alarm')) + group('📞 Phone ringtones', ps.filter(x => x.type === 'ringtone')) + group('🔔 Phone notifications', ps.filter(x => x.type === 'notification'));
+    // Keep a sound that's no longer listed (e.g. list not loaded yet) selectable.
+    if (isUri(sel) && !ps.concat(mine).some(x => x.uri === sel)) html += `<optgroup label="Current">${opt(sel, selTitle || soundTitle(sel) || 'Phone sound')}</optgroup>`;
+    html += `<option value="__file">📁 Pick any sound file…</option>`;
+  }
+  $('eSound').innerHTML = html;
+  if (![...$('eSound').options].some(o => o.selected && o.value === sel)) $('eSound').value = SOUNDS[sel] ? sel : 'Pixel chime';
+  lastSound = $('eSound').value;
+}
+function pickedSound(){
+  const v = $('eSound').value;
+  if (isUri(v)) return { sound: soundTitle(v) || editing?.sound || 'Phone sound', soundUri: v };
+  return { sound: SOUNDS[v] ? v : 'Pixel chime', soundUri: '' };
+}
 
 /* ================= Ringing ================= */
 let ringing = null; // { kind:'alarm'|'timer'|'bed', id }
@@ -605,7 +660,7 @@ function ring(kind, obj, title, label){
   if (NATIVE) clearDelivered();
   $('ringStop').textContent = kind === 'timer' ? 'DISMISS' : 'STOP';
   $('ring').classList.add('show');
-  startLoop(obj.sound || 'Classic beep');
+  startLoop(obj.sound || 'Classic beep', obj.soundUri);
   if (obj.vibe !== false && navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 400, 200, 400, 200, 400, 200, 400, 200, 400]);
   notify(kind === 'timer' ? "⏳ Time's up!" : '⏰ ' + (label || 'Alarm'), kind === 'timer' ? (label || 'Timer done') : hm(new Date().getHours(), new Date().getMinutes(), false));
   document.title = '⏰ ' + (label || 'Ringing') + ' — Railway Time';
@@ -958,6 +1013,11 @@ function renderSettings(){
   $('appRow').innerHTML = NATIVE
     ? `<span>📱 Android app<small>Alarms, timers and reminders ring through Android, even when Railway Time is closed.</small></span><span class="pill ${nativeWarn ? 'warn' : ''}">${nativeWarn ? 'NOTIFICATIONS OFF' : nativeExact === false ? 'NOT EXACT' : 'ACTIVE'}</span>`
     : `<span>📱 Android app<small>Alarms that ring even when the app is closed or the phone is locked.</small></span><a class="pxbtn go" href="https://github.com/Hootywhooo86/railwaytime/releases/download/android-latest/RailwayTime.apk" target="_blank" rel="noopener">GET APK</a>`;
+  $('dndRow').style.display = NATIVE && PS ? '' : 'none';
+  if (NATIVE && PS){
+    $('dndRow').innerHTML = `<span>🔕 Ring through Do Not Disturb<small>${dndOk ? 'Alarms and timers ring even when Do Not Disturb is on.' : 'Alarms already use the alarm volume. Allow this so they also break through every Do Not Disturb mode.'}</small></span>${dndOk ? '<span class="pill">ON</span>' : '<button class="pxbtn orange" id="dndBtn">ALLOW</button>'}`;
+    const b = $('dndBtn'); if (b) b.onclick = () => { toast('TURN ON RAILWAY TIME'); PS.openDndSettings().catch(() => {}); };
+  }
 }
 $('setBtn').onclick = () => { renderSettings(); $('setModal').classList.add('open'); };
 $('setDone').onclick = () => $('setModal').classList.remove('open');
@@ -973,8 +1033,15 @@ $('nsColor').onchange = () => { settings.nsColor = $('nsColor').value; saveSetti
 // The web app keeps working exactly as before; this block is inert outside the app.
 var NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
 var LN = NATIVE ? Capacitor.registerPlugin('LocalNotifications') : null;
+var PS = NATIVE ? Capacitor.registerPlugin('PhoneSounds') : null;
+var dndOk = false;
+async function checkDnd(){
+  if (!PS) return;
+  try { const was = dndOk; dndOk = !!(await PS.dndStatus()).granted; if (was !== dndOk){ renderSettings(); syncNative(); } } catch {}
+}
+// Coming back from Android Settings: pick up a newly granted Do Not Disturb access.
+document.addEventListener('visibilitychange', () => { if (!document.hidden && NATIVE) checkDnd(); });
 var nativeReady = false, nativeWarn = '', nativeExact = null, syncTimer = null;
-const SLUG = { 'Pixel chime': 'pixel_chime', 'Station bell': 'station_bell', 'Train whistle': 'train_whistle', 'Classic beep': 'classic_beep', 'Sunrise': 'sunrise', 'Rooster (8-bit)': 'rooster' };
 function clearDelivered(){ LN?.removeAllDeliveredNotifications().catch(() => {}); setTimeout(() => LN?.removeAllDeliveredNotifications().catch(() => {}), 1500); }
 async function nativeInit(){
   try {
@@ -982,8 +1049,7 @@ async function nativeInit(){
     if (p.display !== 'granted') p = await LN.requestPermissions();
     if (p.display !== 'granted'){ nativeWarn = "Notifications are off, so alarms can't ring while Railway Time is closed. Turn them on in Android Settings → Apps → Railway Time → Notifications."; banners(); return; }
     try { nativeExact = (await LN.checkExactNotificationSetting()).exact_alarm === 'granted'; } catch {}
-    for (const [name, slug] of Object.entries(SLUG))
-      await LN.createChannel({ id: 'alarm_' + slug, name: 'Alarm: ' + name, description: 'Alarms and timers with the ' + name + ' sound', importance: 5, visibility: 1, sound: slug + '.wav', vibration: true, lights: true, lightColor: '#2DD4BF' });
+    await checkDnd();
     await LN.createChannel({ id: 'reminders', name: 'Reminders', description: 'Wind-down reminders, focus cycles and countdowns', importance: 4, visibility: 1, sound: 'station_bell.wav', vibration: false });
     await LN.registerActionTypes({ types: [
       { id: 'ALARM', actions: [{ id: 'snooze', title: 'Snooze' }, { id: 'stop', title: 'Stop', destructive: true }] },
@@ -998,6 +1064,17 @@ async function nativeInit(){
 }
 function syncNative(){ if (!nativeReady) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => doSync().catch(e => console.warn('sync', e)), 300); }
 async function doSync(){
+  // Alarm channels play on the alarm stream (and through DND when allowed); one per sound in use.
+  const chans = {};
+  const chan = async (o) => {
+    const uri = soundUri(o) || 'raw:classic_beep', key = SLUG[o?.sound] && !o?.soundUri ? SLUG[o.sound] : 'phone';
+    if (!chans[uri]) chans[uri] = (await PS.ensureChannel({ key, uri, name: o?.soundUri ? o.sound : (o?.sound || 'Classic beep') }).catch(() => ({ id: 'reminders' }))).id;
+    return chans[uri];
+  };
+  const alarmChan = {};
+  for (const a of alarms.filter(a => a.on)) alarmChan[a.id] = await chan(a);
+  const timerChan = await chan({ sound: 'Classic beep' });
+  await PS.prune({ keep: Object.values(chans) }).catch(() => {});
   const now = Date.now(), list = [], icon = { smallIcon: 'ic_stat_alarm', iconColor: cssVar('--teal') || '#2dd4bf' };
   let id = 1;
   const add = (n, at) => { if (at > now + 1000) list.push({ id: id++, ...icon, ...n, schedule: { at: new Date(at), allowWhileIdle: true } }); };
@@ -1007,7 +1084,7 @@ async function doSync(){
     const type = chal ? (canSnooze ? 'ALARM_SNOOZE' : undefined) : (canSnooze ? 'ALARM' : 'ALARM_STOP');
     occurrences(a, now, now + 21 * 864e5, 40).forEach(at => add({
       title: '⏰ ' + (a.label || 'Alarm'), body: hm(new Date(at).getHours(), new Date(at).getMinutes(), false) + (chal ? ' · open Railway Time to turn it off' : ''),
-      channelId: 'alarm_' + (SLUG[a.sound] || 'pixel_chime'), actionTypeId: type, ongoing: true, autoCancel: false, extra: { kind: 'alarm', aid: a.id, at }
+      channelId: alarmChan[a.id], actionTypeId: type, ongoing: true, autoCancel: false, extra: { kind: 'alarm', aid: a.id, at }
     }, at));
   });
   timers.filter(t => t.end).forEach(t => {
@@ -1016,7 +1093,7 @@ async function doSync(){
     segs.forEach((sg, i) => {
       if (i) at += sg.ms;
       const last = i === segs.length - 1, nxt = segs[i + 1];
-      add(last ? { title: "⏳ Time's up!", body: t.seq ? 'Focus session done 🎉' : (t.label || clockStr(t.total) + ' timer'), channelId: 'alarm_classic_beep', actionTypeId: 'TIMER', ongoing: true, autoCancel: false, extra: { kind: 'timer', tid: t.id } }
+      add(last ? { title: "⏳ Time's up!", body: t.seq ? 'Focus session done 🎉' : (t.label || clockStr(t.total) + ' timer'), channelId: timerChan, actionTypeId: 'TIMER', ongoing: true, autoCancel: false, extra: { kind: 'timer', tid: t.id } }
                : { title: nxt.label, body: Math.round(nxt.ms / 60000) + ' minutes', channelId: 'reminders', extra: { kind: 'seg', tid: t.id } }, at);
     });
   });
