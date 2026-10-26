@@ -193,6 +193,18 @@
   .pill{font-family:'Press Start 2P',monospace;font-size:7px;padding:6px 7px;background:var(--key);color:var(--teal);white-space:nowrap}
   .pill.warn{color:var(--pink)}
   a.pxbtn{color:var(--bg);text-decoration:none;display:inline-block;white-space:nowrap}
+  /* Phones: stay clear of the status bar and the gesture bar. The Android app draws
+     edge-to-edge and reports their sizes as --safe-area-inset-*; browsers use env(). */
+  :root{--sat:var(--safe-area-inset-top,env(safe-area-inset-top,0px));--sab:var(--safe-area-inset-bottom,env(safe-area-inset-bottom,0px))}
+  .app{padding-top:calc(14px + var(--sat));padding-bottom:calc(110px + var(--sab))}
+  .tabs{padding-bottom:var(--sab)}
+  body::after{content:"";position:fixed;top:0;left:0;right:0;height:var(--sat);background:var(--bg);z-index:9;pointer-events:none}
+  .toast{bottom:calc(96px + var(--sab));transform:translateX(-50%) translateY(calc(240px + var(--sab)))}
+  .sheet{padding-bottom:calc(26px + var(--sab))}
+  .fab{bottom:calc(88px + var(--sab))}
+  .ring{padding-top:calc(20px + var(--sat));padding-bottom:calc(20px + var(--sab))}
+  .ns .x{top:calc(14px + var(--sat))}
+  .ns .hint{bottom:calc(22px + var(--sab))}
 </style>
 <script src="vendor/capacitor.js"></script>
 <script src="theme.js" data-app="clock" data-accent="teal" data-second="pink" data-third="orange" data-mount="#tools"></script>
