@@ -19,7 +19,7 @@ Railway Time is a full clock app, a pixel replacement for Google Clock, built ar
 
 The `android/` folder wraps the same web app with [Capacitor](https://capacitorjs.com). In the app, every alarm, timer, focus block, bedtime reminder and countdown is handed to Android's alarm manager as an exact notification (`USE_EXACT_ALARM`, survives reboots), on a channel with that alarm's chiptune sound. Snooze and Stop work straight from the notification. Alarms with a wake-up challenge only offer Snooze there, so you have to open the app and solve it. If the app is open when an alarm goes off, it rings full-screen as usual.
 
-**Install:** GitHub Actions builds the APK on every push (`.github/workflows/android.yml`). Pushes to `main` publish it at https://github.com/Hootywhooo86/railwaytime/releases/tag/android-latest. Open that page on your phone, download `RailwayTime.apk`, and allow installs from your browser. Later builds install over the old one and keep your alarms.
+**Install:** GitHub Actions builds the APK on every push (`.github/workflows/android.yml`). Pushes to `main` publish it at https://github.com/Hootywhooo86/railwaytime/releases/tag/android-latest (direct download: https://github.com/Hootywhooo86/railwaytime/releases/download/android-latest/RailwayTime.apk). Open that page on your phone, download `RailwayTime.apk`, and allow installs from your browser. Later builds install over the old one and keep your alarms.
 
 **Build it yourself:** `npm ci && npx cap sync android && cd android && ./gradlew assembleDebug` (needs JDK 21 and the Android SDK).
 

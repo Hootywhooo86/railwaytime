@@ -957,7 +957,7 @@ function renderSettings(){
   $('nsStyle').value = settings.nsStyle; $('nsColor').value = settings.nsColor;
   $('appRow').innerHTML = NATIVE
     ? `<span>📱 Android app<small>Alarms, timers and reminders ring through Android, even when Railway Time is closed.</small></span><span class="pill ${nativeWarn ? 'warn' : ''}">${nativeWarn ? 'NOTIFICATIONS OFF' : nativeExact === false ? 'NOT EXACT' : 'ACTIVE'}</span>`
-    : `<span>📱 Android app<small>Alarms that ring even when the app is closed or the phone is locked.</small></span><a class="pxbtn go" href="https://github.com/Hootywhooo86/railwaytime/releases/tag/android-latest" target="_blank" rel="noopener">GET APK</a>`;
+    : `<span>📱 Android app<small>Alarms that ring even when the app is closed or the phone is locked.</small></span><a class="pxbtn go" href="https://github.com/Hootywhooo86/railwaytime/releases/download/android-latest/RailwayTime.apk" target="_blank" rel="noopener">GET APK</a>`;
 }
 $('setBtn').onclick = () => { renderSettings(); $('setModal').classList.add('open'); };
 $('setDone').onclick = () => $('setModal').classList.remove('open');
