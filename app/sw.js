@@ -1,6 +1,6 @@
 // Offline shell: cache the app files, network-first so updates land immediately.
-const CACHE = 'railwaytime-v2';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './theme.js'];
+const CACHE = 'railwaytime-v3';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './theme.js', './vendor/capacitor.js', './fonts/fonts.css', './fonts/pressstart2p-latin.woff2', './fonts/inter-latin.woff2'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))); self.clients.claim(); });
 self.addEventListener('fetch', e => {

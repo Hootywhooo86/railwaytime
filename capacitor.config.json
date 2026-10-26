@@ -1,0 +1,14 @@
+{
+  "appId": "com.hootywhooo86.railwaytime",
+  "appName": "Railway Time",
+  "webDir": "app",
+  "android": {
+    "backgroundColor": "#0b0b16"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_alarm",
+      "iconColor": "#2dd4bf"
+    }
+  }
+}
