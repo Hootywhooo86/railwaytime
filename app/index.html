@@ -26,7 +26,7 @@
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%}
   body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;overflow-x:hidden}
-  body::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:radial-gradient(rgba(45,212,191,.07) 1px,transparent 1px);background-size:22px 22px}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:radial-gradient(color-mix(in srgb,var(--teal) 8%,transparent) 1px,transparent 1px);background-size:22px 22px}
   button{font-family:inherit;color:inherit;cursor:pointer}
   .px{font-family:'Press Start 2P',monospace}
   .app{max-width:560px;margin:0 auto;padding:12px 14px 110px;position:relative}
@@ -42,7 +42,7 @@
   .pxbtn{font-family:'Press Start 2P',monospace;font-size:9px;padding:12px 14px;background:var(--key);border:none;box-shadow:0 4px 0 #000}
   .pxbtn:active{transform:translateY(3px);box-shadow:0 1px 0 #000}
   .pxbtn.go{background:var(--teal);color:var(--bg);box-shadow:0 4px 0 var(--teal-deep)}
-  .pxbtn.warn{background:var(--pink);color:var(--bg);box-shadow:0 4px 0 #9d174d}
+  .pxbtn.warn{background:var(--pink);color:var(--bg);box-shadow:0 4px 0 var(--pink-deep)}
   .pxbtn.orange{background:var(--orange);color:var(--bg);box-shadow:0 4px 0 #a05e00}
   .pxbtn:disabled{opacity:.4}
   input,select{background:var(--bg);border:3px solid var(--line);color:var(--ink);font-size:15px;padding:9px 10px;font-family:'Inter',sans-serif;width:100%;border-radius:0}
@@ -57,7 +57,7 @@
   .tabs button.on span{transform:translateY(-2px)}
   /* clock */
   .bigclock{text-align:center;padding:10px 0 4px}
-  .bigclock .t{font-family:'Press Start 2P',monospace;font-size:clamp(34px,11vw,56px);letter-spacing:2px;text-shadow:0 5px 0 #1a1a33,5px 0 0 #1a1a33}
+  .bigclock .t{font-family:'Press Start 2P',monospace;font-size:clamp(34px,11vw,56px);letter-spacing:2px;text-shadow:0 5px 0 var(--line),5px 0 0 var(--line)}
   .bigclock .t small{font-size:.32em;color:var(--teal);margin-left:6px}
   .bigclock .s{font-family:'Press Start 2P',monospace;font-size:14px;color:var(--orange);margin-top:6px}
   .bigclock .d{color:var(--muted);margin-top:12px;font-size:14px}
@@ -103,7 +103,7 @@
   .timer{border:3px solid var(--line);background:var(--bg);padding:14px;margin-top:12px;position:relative;overflow:hidden}
   .timer .bar{position:absolute;left:0;bottom:0;height:5px;background:var(--teal);transition:width .25s linear}
   .timer.ringing{border-color:var(--pink);animation:flash .6s steps(1) infinite}
-  @keyframes flash{50%{background:#2a0f1c}}
+  @keyframes flash{50%{background:color-mix(in srgb,var(--pink) 18%,var(--bg))}}
   .timer .lbl{font-size:12px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between}
   .timer .rem{font-family:'Press Start 2P',monospace;font-size:clamp(24px,8vw,34px);margin-bottom:12px}
   .timer.paused .rem{color:var(--muted)}
@@ -118,7 +118,7 @@
   .laps li.best{color:var(--teal)} .laps li.worst{color:var(--pink)}
   /* bedtime */
   .sleepbar{display:flex;height:16px;background:var(--bg);border:3px solid var(--line);margin:10px 0 6px;position:relative}
-  .sleepbar i{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#6d28d9,var(--teal))}
+  .sleepbar i{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,var(--pink),var(--teal))}
   .sleepinfo{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
   .stat{font-family:'Press Start 2P',monospace;font-size:18px;color:var(--orange);text-align:center;margin:14px 0 4px}
   .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
@@ -132,7 +132,7 @@
   .ring .l{font-size:18px;color:var(--muted)}
   .ring .btns{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
   .ring .btns .pxbtn{font-size:12px;padding:20px 26px}
-  .banner{background:#2a1f0b;border:3px solid var(--orange);color:var(--orange);padding:10px 12px;font-size:13px;line-height:1.5;margin-bottom:14px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .banner{background:color-mix(in srgb,var(--orange) 12%,var(--bg));border:3px solid var(--orange);color:var(--orange);padding:10px 12px;font-size:13px;line-height:1.5;margin-bottom:14px;display:flex;gap:10px;align-items:center;justify-content:space-between}
   .banner .pxbtn{flex:0 0 auto}
   .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(200px);background:var(--teal);color:var(--bg);font-family:'Press Start 2P',monospace;font-size:10px;padding:12px 16px;box-shadow:0 4px 0 var(--teal-deep);transition:transform .25s;z-index:40;max-width:92vw;line-height:1.5}
   .toast.show{transform:translateX(-50%) translateY(0)}
@@ -141,12 +141,13 @@
   .sheet{background:var(--panel);border:3px solid var(--line);border-bottom:none;width:100%;max-width:560px;padding:18px 16px 26px;max-height:92dvh;overflow-y:auto}
   .sheet .btns{display:flex;gap:10px;margin-top:18px;justify-content:flex-end;flex-wrap:wrap}
 </style>
+<script src="theme.js" data-app="clock" data-accent="teal" data-second="pink" data-mount="#tools"></script>
 </head>
 <body>
 <div class="app">
   <header>
     <div class="logo"><i>⏰</i>RAILWAY TIME</div>
-    <div class="rowflex">
+    <div class="rowflex" id="tools">
       <button class="iconbtn" id="fmtBtn" title="12/24-hour">24H</button>
       <button class="iconbtn" id="wakeBtn" title="Keep screen awake">☀ AWAKE</button>
     </div>
@@ -467,22 +468,26 @@ function drawAnalog(now){
   const c = $('analog'), x = c.getContext('2d'), N = 88, C = 44;
   x.clearRect(0, 0, N, N);
   const dot = (px, py, col, sz = 1) => { x.fillStyle = col; x.fillRect(Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz); };
-  for (let a = 0; a < 360; a += 1.2){ const r = a * Math.PI / 180; dot(C + Math.cos(r) * 41, C + Math.sin(r) * 41, '#2a2a4a', 3); }
-  x.fillStyle = '#f4f1ff'; x.beginPath(); x.arc(C, C, 38, 0, Math.PI * 2); x.fill();
+  for (let a = 0; a < 360; a += 1.2){ const r = a * Math.PI / 180; dot(C + Math.cos(r) * 41, C + Math.sin(r) * 41, CV.line, 3); }
+  x.fillStyle = CV.face; x.beginPath(); x.arc(C, C, 38, 0, Math.PI * 2); x.fill();
   for (let i = 0; i < 60; i++){
     const r = i / 60 * Math.PI * 2, big = i % 5 === 0;
-    for (let k = big ? 30 : 34; k <= 36; k++) dot(C + Math.sin(r) * k, C - Math.cos(r) * k, '#0b0b16', big ? 2 : 1);
+    for (let k = big ? 30 : 34; k <= 36; k++) dot(C + Math.sin(r) * k, C - Math.cos(r) * k, CV.ink, big ? 2 : 1);
   }
   const hand = (frac, len, w, col, tail = 0) => { const r = frac * Math.PI * 2; for (let k = -tail; k <= len; k += 0.5) dot(C + Math.sin(r) * k, C - Math.cos(r) * k, col, w); };
   const ms = now.getMilliseconds(), s = now.getSeconds(), m = now.getMinutes(), h = now.getHours() % 12;
-  hand((h + m / 60) / 12, 20, 4, '#0b0b16', 4);
-  hand((m + s / 60) / 60, 30, 3, '#0b0b16', 5);
+  hand((h + m / 60) / 12, 20, 4, CV.ink, 4);
+  hand((m + s / 60) / 60, 30, 3, CV.ink, 5);
   // Swiss railway style: the second hand sweeps in 58.5s and pauses at 12.
   const sweep = Math.min((s + ms / 1000) / 58.5, 1);
-  hand(sweep, 26, 1, '#ff5d8f', 8);
-  const r = sweep * Math.PI * 2; x.fillStyle = '#ff5d8f'; x.fillRect(Math.round(C + Math.sin(r) * 26) - 3, Math.round(C - Math.cos(r) * 26) - 3, 6, 6);
-  dot(C, C, '#ff5d8f', 4);
+  hand(sweep, 26, 1, CV.sec, 8);
+  const r = sweep * Math.PI * 2; x.fillStyle = CV.sec; x.fillRect(Math.round(C + Math.sin(r) * 26) - 3, Math.round(C - Math.cos(r) * 26) - 3, 6, 6);
+  dot(C, C, CV.sec, 4);
 }
+// Clock-face colours follow the theme picker.
+const CV = { line: '#2a2a4a', face: '#f4f1ff', ink: '#0b0b16', sec: '#ff5d8f' };
+function readCV(){ const g = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim(); CV.line = g('--line') || CV.line; CV.ink = g('--bg') || CV.ink; CV.sec = g('--pink') || CV.sec; }
+window.addEventListener('themechange', readCV); readCV();
 let cities = store.get('cities', [{ tz: 'Europe/London' }, { tz: 'Asia/Tokyo' }, { tz: 'America/Los_Angeles' }]);
 const zones = (Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : ['UTC', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Kolkata', 'Asia/Dubai', 'Australia/Sydney', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'America/Sao_Paulo', 'Africa/Cairo', 'Pacific/Auckland']);
 const cityName = tz => tz.split('/').pop().replace(/_/g, ' ');
