@@ -41,4 +41,9 @@
     <!-- Alarms must fire on the minute, even in Doze. USE_EXACT_ALARM is granted to alarm-clock apps automatically. -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Lets alarms ring through Do Not Disturb once the user allows it in Settings. -->
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <!-- Lists ringtones and alarm sounds the user added themselves. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
 </manifest>
