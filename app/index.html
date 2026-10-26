@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b0b16">
+<title>Railway Time</title>
+<meta name="description" content="Railway Time: a pixel clock app with alarms, world clock, timers, stopwatch and bedtime.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+  :root{
+    --bg:#0b0b16;
+    --panel:#141428;
+    --line:#2a2a4a;
+    --key:#1f1f3a;
+    --teal:#2dd4bf;
+    --teal-deep:#0e7490;
+    --orange:#ff9f1c;
+    --pink:#ff5d8f;
+    --ink:#f4f1ff;
+    --muted:#9a97b8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;background-image:radial-gradient(color-mix(in srgb,var(--teal) 8%,transparent) 1px,transparent 1px);background-size:22px 22px}
+  button{font-family:inherit;color:inherit;cursor:pointer}
+  .px{font-family:'Press Start 2P',monospace}
+  .app{max-width:560px;margin:0 auto;padding:12px 14px 110px;position:relative}
+  header{display:flex;align-items:center;justify-content:space-between;padding:6px 0 14px}
+  .logo{display:flex;align-items:center;gap:10px;font-family:'Press Start 2P',monospace;font-size:11px}
+  .logo i{width:28px;height:28px;background:var(--teal);display:grid;place-items:center;font-style:normal;font-size:14px;box-shadow:0 3px 0 var(--teal-deep)}
+  .iconbtn{font-family:'Press Start 2P',monospace;font-size:8px;background:var(--key);border:none;padding:9px 10px;box-shadow:0 3px 0 #000}
+  .iconbtn.on{background:var(--teal);color:var(--bg);box-shadow:0 3px 0 var(--teal-deep)}
+  .view{display:none}.view.on{display:block}
+  .card{background:var(--panel);border:3px solid var(--line);padding:14px;box-shadow:6px 6px 0 #000;margin-bottom:14px}
+  h2{font-family:'Press Start 2P',monospace;font-size:10px;color:var(--teal);margin-bottom:12px;line-height:1.6;text-align:center}
+  .muted{color:var(--muted)}
+  .pxbtn{font-family:'Press Start 2P',monospace;font-size:9px;padding:12px 14px;background:var(--key);border:none;box-shadow:0 4px 0 #000}
+  .pxbtn:active{transform:translateY(3px);box-shadow:0 1px 0 #000}
+  .pxbtn.go{background:var(--teal);color:var(--bg);box-shadow:0 4px 0 var(--teal-deep)}
+  .pxbtn.warn{background:var(--pink);color:var(--bg);box-shadow:0 4px 0 var(--pink-deep)}
+  .pxbtn.orange{background:var(--orange);color:var(--bg);box-shadow:0 4px 0 var(--orange-deep)}
+  .pxbtn:disabled{opacity:.4}
+  input,select{background:var(--bg);border:3px solid var(--line);color:var(--ink);font-size:15px;padding:9px 10px;font-family:'Inter',sans-serif;width:100%;border-radius:0}
+  input:focus,select:focus{outline:none;border-color:var(--teal)}
+  input[type=time]{color-scheme:dark;font-family:'Press Start 2P',monospace;font-size:16px}
+  label.f{display:block;font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted);margin:12px 0 6px}
+  /* bottom nav */
+  .tabs{position:fixed;left:0;right:0;bottom:0;background:var(--panel);border-top:3px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);z-index:8;padding-bottom:env(safe-area-inset-bottom);padding-left:max(0px,calc(50% - 280px));padding-right:max(0px,calc(50% - 280px))}
+  .tabs button{background:none;border:none;padding:10px 0 12px;font-family:'Press Start 2P',monospace;font-size:7px;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:7px}
+  .tabs button span{font-size:18px;font-family:system-ui}
+  .tabs button.on{color:var(--teal)}
+  .tabs button.on span{transform:translateY(-2px)}
+  /* clock */
+  .bigclock{text-align:center;padding:10px 0 4px}
+  .bigclock .t{font-family:'Press Start 2P',monospace;font-size:clamp(34px,11vw,56px);letter-spacing:2px;text-shadow:0 5px 0 var(--line),5px 0 0 var(--line)}
+  .bigclock .t small{font-size:.32em;color:var(--teal);margin-left:6px}
+  .bigclock .s{font-family:'Press Start 2P',monospace;font-size:14px;color:var(--orange);margin-top:6px}
+  .bigclock .d{color:var(--muted);margin-top:12px;font-size:14px}
+  canvas#analog{display:block;margin:6px auto 4px;width:220px;height:220px;image-rendering:pixelated}
+  .next{text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
+  .next b{color:var(--teal)}
+  .city{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:2px dashed var(--line)}
+  .city:last-child{border-bottom:none}
+  .city .nm{flex:1;min-width:0}
+  .city .nm b{display:block;font-size:15px}
+  .city .nm span{font-size:12px;color:var(--muted)}
+  .city .tm{font-family:'Press Start 2P',monospace;font-size:15px;text-align:right}
+  .city .tm small{display:block;font-size:7px;color:var(--muted);margin-top:6px}
+  .city .x{background:none;border:none;color:var(--muted);font-size:16px;padding:4px}
+  .addrow{display:flex;gap:8px;margin-top:10px}
+  /* alarms */
+  .alarm{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:14px 0;border-bottom:2px dashed var(--line)}
+  .alarm:last-child{border-bottom:none}
+  .alarm .tm{font-family:'Press Start 2P',monospace;font-size:24px;cursor:pointer}
+  .alarm .tm small{font-size:9px;color:var(--muted);margin-left:4px}
+  .alarm.off .tm{color:var(--muted)}
+  .alarm .meta{font-size:13px;color:var(--muted);grid-column:1/2}
+  .alarm .meta b{color:var(--ink);font-weight:600}
+  .alarm .acts{grid-column:1/-1;display:none;gap:12px;flex-wrap:wrap;padding-top:8px}
+  .alarm.open .acts{display:flex;flex-direction:column}
+  .days{display:flex;gap:5px;justify-content:center;flex-wrap:wrap}
+  .days button{width:34px;height:34px;background:var(--bg);border:3px solid var(--line);font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted)}
+  .days button.on{background:var(--teal);border-color:var(--teal-deep);color:var(--bg)}
+  .tog{width:52px;height:28px;background:var(--bg);border:3px solid var(--line);position:relative;flex:0 0 auto;align-self:center}
+  .tog::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;background:var(--muted);transition:left .15s}
+  .tog.on{background:var(--teal-deep);border-color:var(--teal)}
+  .tog.on::after{left:26px;background:var(--teal)}
+  .rowflex{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center}
+  .fab{position:fixed;right:max(18px,calc(50% - 262px));bottom:88px;width:60px;height:60px;background:var(--teal);color:var(--bg);font-size:28px;border:none;box-shadow:0 5px 0 var(--teal-deep);z-index:7;display:none}
+  .fab.show{display:block}
+  .empty{text-align:center;color:var(--muted);padding:26px 10px;font-size:14px;line-height:1.7}
+  .empty .px{display:block;color:var(--teal);font-size:10px;margin-bottom:10px}
+  /* timer */
+  .presets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .dial{display:flex;justify-content:center;gap:6px;align-items:center;font-family:'Press Start 2P',monospace;margin:6px 0 14px}
+  .dial input{width:74px;text-align:center;font-family:'Press Start 2P',monospace;font-size:20px;padding:12px 4px}
+  .dial span{font-size:20px;color:var(--muted)}
+  .timer{border:3px solid var(--line);background:var(--bg);padding:14px;margin-top:12px;position:relative;overflow:hidden}
+  .timer .bar{position:absolute;left:0;bottom:0;height:5px;background:var(--teal);transition:width .25s linear}
+  .timer.ringing{border-color:var(--pink);animation:flash .6s steps(1) infinite}
+  @keyframes flash{50%{background:color-mix(in srgb,var(--pink) 18%,var(--bg))}}
+  .timer .lbl{font-size:12px;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between}
+  .timer .rem{font-family:'Press Start 2P',monospace;font-size:clamp(24px,8vw,34px);margin-bottom:12px}
+  .timer.paused .rem{color:var(--muted)}
+  /* stopwatch */
+  .sw{font-family:'Press Start 2P',monospace;font-size:clamp(30px,10vw,48px);text-align:center;padding:24px 0 8px}
+  .sw small{font-size:.5em;color:var(--teal)}
+  .swbtns{display:flex;justify-content:center;gap:12px;margin:14px 0 6px}
+  .swbtns .pxbtn{min-width:120px;padding:16px}
+  .laps{list-style:none;font-size:14px}
+  .laps li{display:grid;grid-template-columns:60px 1fr 1fr;padding:9px 4px;border-bottom:2px dashed var(--line);font-variant-numeric:tabular-nums}
+  .laps li span:nth-child(2),.laps li span:nth-child(3){text-align:right;font-family:'Press Start 2P',monospace;font-size:10px}
+  .laps li.best{color:var(--teal)} .laps li.worst{color:var(--pink)}
+  /* bedtime */
+  .sleepbar{display:flex;height:16px;background:var(--bg);border:3px solid var(--line);margin:10px 0 6px;position:relative}
+  .sleepbar i{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,var(--pink),var(--teal))}
+  .sleepinfo{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+  .stat{font-family:'Press Start 2P',monospace;font-size:18px;color:var(--orange);text-align:center;margin:14px 0 4px}
+  .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  .grid2 input[type=time]{font-size:13px;padding:10px 6px;min-width:0}
+  /* ring overlay */
+  .ring{position:fixed;inset:0;background:var(--bg);z-index:30;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;gap:18px}
+  .ring.show{display:flex}
+  .ring .bell{font-size:72px;animation:shake .3s steps(2) infinite}
+  @keyframes shake{0%{transform:rotate(-12deg)}100%{transform:rotate(12deg)}}
+  .ring .t{font-family:'Press Start 2P',monospace;font-size:clamp(30px,12vw,52px)}
+  .ring .l{font-size:18px;color:var(--muted)}
+  .ring .btns{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+  .ring .btns .pxbtn{font-size:12px;padding:20px 26px}
+  .banner{background:color-mix(in srgb,var(--orange) 12%,var(--bg));border:3px solid var(--orange);color:var(--orange);padding:10px 12px;font-size:13px;line-height:1.5;margin-bottom:14px;display:flex;gap:10px;align-items:center;justify-content:space-between}
+  .banner .pxbtn{flex:0 0 auto}
+  .toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(200px);background:var(--teal);color:var(--bg);font-family:'Press Start 2P',monospace;font-size:10px;padding:12px 16px;box-shadow:0 4px 0 var(--teal-deep);transition:transform .25s;z-index:40;max-width:92vw;line-height:1.5}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  .modal{position:fixed;inset:0;background:rgba(5,5,12,.85);display:none;align-items:flex-end;justify-content:center;z-index:25}
+  .modal.open{display:flex}
+  .sheet{background:var(--panel);border:3px solid var(--line);border-bottom:none;width:100%;max-width:560px;padding:18px 16px 26px;max-height:92dvh;overflow-y:auto}
+  .sheet .btns{display:flex;gap:10px;margin-top:18px;justify-content:flex-end;flex-wrap:wrap}
+  input[type=date],input[type=datetime-local]{color-scheme:dark}
+  /* repeat modes */
+  .seg{display:grid;grid-template-columns:1fr 1fr;border:3px solid var(--line)}
+  .seg button{background:var(--bg);border:none;padding:11px 4px;font-family:'Press Start 2P',monospace;font-size:8px;color:var(--muted)}
+  .seg button.on{background:var(--teal);color:var(--bg)}
+  .rot{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.5fr);gap:8px}
+  .rot input{font-size:14px;padding:8px}
+  .rotprev{display:flex;gap:3px;margin-top:10px;flex-wrap:wrap;justify-content:center}
+  .rotprev i{width:18px;height:22px;background:var(--bg);border:2px solid var(--line);font-style:normal;font-size:6px;display:grid;place-items:center;font-family:'Press Start 2P',monospace;color:var(--muted)}
+  .rotprev i.on{background:var(--teal);border-color:var(--teal-deep);color:var(--bg)}
+  .alarm .meta .skip{background:none;border:2px solid var(--line);color:var(--muted);font-family:'Press Start 2P',monospace;font-size:7px;padding:4px 6px;margin-left:4px;vertical-align:1px}
+  .alarm .meta .skip.on{border-color:var(--orange);color:var(--orange)}
+  .alarm .meta .chip{font-size:12px;margin-left:2px}
+  /* wake-up challenges */
+  .chal{display:none;flex-direction:column;align-items:center;gap:12px;width:100%;max-width:360px}
+  .ring.challenge .chal{display:flex}
+  .ring.challenge .btns{display:none}
+  .chal .q{font-family:'Press Start 2P',monospace;font-size:clamp(20px,7vw,30px);line-height:1.5;color:var(--orange);letter-spacing:2px}
+  .chal input{text-align:center;font-family:'Press Start 2P',monospace;font-size:22px;padding:14px}
+  .chal input.bad{border-color:var(--pink);animation:shake .15s steps(2) 3}
+  .chal .prog{font-family:'Press Start 2P',monospace;font-size:9px;color:var(--muted);line-height:1.6}
+  .chal .tapbtn{width:170px;height:170px;font-family:'Press Start 2P',monospace;font-size:34px;background:var(--teal);color:var(--bg);border:none;box-shadow:0 8px 0 var(--teal-deep)}
+  .chal .tapbtn:active{transform:translateY(6px);box-shadow:0 2px 0 var(--teal-deep)}
+  /* nightstand */
+  .ns{position:fixed;inset:0;z-index:28;background:#000;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;user-select:none;overflow:hidden}
+  .ns.show{display:flex}
+  .ns .glow{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 115%,var(--orange),transparent 70%);opacity:0;pointer-events:none;transition:opacity 3s}
+  .ns .inner{position:relative;transition:transform 2s,opacity .4s}
+  .ns .t{font-family:'Press Start 2P',monospace;font-size:clamp(46px,16vw,150px);color:var(--ns-c);text-shadow:0 6px 0 color-mix(in srgb,var(--ns-c) 28%,#000)}
+  .ns .t small{font-size:.26em;margin-left:8px}
+  .ns .d{font-family:'Press Start 2P',monospace;font-size:clamp(9px,2.6vw,14px);color:var(--ns-c);opacity:.6;margin-top:24px;line-height:1.9}
+  .ns canvas{width:min(70vw,58vh);height:min(70vw,58vh);image-rendering:pixelated;display:block;margin:0 auto 10px}
+  .ns .x{position:absolute;top:calc(14px + env(safe-area-inset-top));right:14px;background:none;border:2px solid #333;color:#777;font-family:'Press Start 2P',monospace;font-size:9px;padding:9px 10px}
+  .ns .hint{position:absolute;bottom:22px;left:0;right:0;font-size:12px;color:#666;transition:opacity 1.5s}
+  /* countdowns */
+  .cd{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:2px dashed var(--line)}
+  .cd:last-child{border-bottom:none}
+  .cd .ic{font-size:24px}
+  .cd .nm{flex:1;min-width:0}
+  .cd .nm b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cd .nm span{font-size:12px;color:var(--muted)}
+  .cd .left{font-family:'Press Start 2P',monospace;font-size:12px;color:var(--orange);text-align:right;line-height:1.7;white-space:nowrap}
+  .cd .left small{display:block;font-size:7px;color:var(--muted)}
+  .cd .x{background:none;border:none;color:var(--muted);font-size:16px;padding:4px}
+  .cdadd{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;margin-top:10px}
+  .cdadd select{width:auto}
+  .cdadd .full{grid-column:1/-1}
+  /* settings */
+  .setrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:2px dashed var(--line);font-size:14px}
+  .setrow:last-of-type{border-bottom:none}
+  .setrow small{display:block;color:var(--muted);font-size:12px;margin-top:3px;line-height:1.5}
+  .setrow select{width:auto;font-size:13px;padding:7px}
+  .pill{font-family:'Press Start 2P',monospace;font-size:7px;padding:6px 7px;background:var(--key);color:var(--teal);white-space:nowrap}
+  .pill.warn{color:var(--pink)}
+  a.pxbtn{color:var(--bg);text-decoration:none;display:inline-block;white-space:nowrap}
+</style>
+<script src="vendor/capacitor.js"></script>
+<script src="theme.js" data-app="clock" data-accent="teal" data-second="pink" data-third="orange" data-mount="#tools"></script>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"><i>⏰</i>RAILWAY TIME</div>
+    <div class="rowflex" id="tools">
+      <button class="iconbtn" id="wakeBtn" title="Keep screen awake">☀ AWAKE</button>
+      <button class="iconbtn" id="setBtn" title="Settings" aria-label="Settings">⚙</button>
+    </div>
+  </header>
+  <div id="banners"></div>
+
+  <!-- ALARM -->
+  <section class="view" id="v-alarm">
+    <div class="card"><div class="next" id="nextAlarm" style="margin:0"></div></div>
+    <div class="card" id="alarmList"></div>
+  </section>
+
+  <!-- CLOCK -->
+  <section class="view" id="v-clock">
+    <div class="card">
+      <canvas id="analog" width="88" height="88"></canvas>
+      <div class="bigclock"><div class="t" id="bigT"></div><div class="s" id="bigS"></div><div class="d" id="bigD"></div></div>
+      <div class="rowflex" style="justify-content:center;margin-top:14px"><button class="pxbtn go" id="nsBtn">🛏 NIGHTSTAND</button></div>
+    </div>
+    <div class="card">
+      <h2>🌍 WORLD CLOCK</h2>
+      <div id="cities"></div>
+      <div class="addrow">
+        <input id="tzSearch" list="tzList" placeholder="Add a city (e.g. Tokyo, London)" autocomplete="off">
+        <datalist id="tzList"></datalist>
+        <button class="pxbtn go" id="tzAdd">ADD</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📅 COUNTDOWNS</h2>
+      <div id="cds"></div>
+      <div class="cdadd">
+        <select id="cdIcon" aria-label="Icon"><option>🎉</option><option>🎂</option><option>✈️</option><option>🏖</option><option>🎄</option><option>💼</option><option>🎮</option><option>💍</option><option>🎓</option><option>🚂</option></select>
+        <input id="cdName" placeholder="What's coming? e.g. Vacation" maxlength="40">
+        <input class="full" id="cdAt" type="datetime-local" aria-label="Date and time">
+        <button class="pxbtn go full" id="cdAdd">+ ADD COUNTDOWN</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- TIMER -->
+  <section class="view" id="v-timer">
+    <div class="card">
+      <h2>⏳ NEW TIMER</h2>
+      <div class="dial"><input id="tH" type="number" min="0" max="99" value="0" aria-label="Hours"><span>:</span><input id="tM" type="number" min="0" max="59" value="5" aria-label="Minutes"><span>:</span><input id="tS" type="number" min="0" max="59" value="0" aria-label="Seconds"></div>
+      <input id="tLabel" placeholder="Label (optional) — e.g. Pasta">
+      <div class="presets" style="margin-top:12px" id="presets"></div>
+      <button class="pxbtn go" id="tStart" style="width:100%;margin-top:14px;padding:16px">▶ START</button>
+    </div>
+    <div class="card">
+      <h2>🍅 FOCUS CYCLES</h2>
+      <div class="grid2" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+        <div><label class="f">FOCUS</label><select id="pFocus"><option>15</option><option>20</option><option selected>25</option><option>30</option><option>45</option><option>50</option><option>60</option></select></div>
+        <div><label class="f">BREAK</label><select id="pBreak"><option>3</option><option selected>5</option><option>10</option><option>15</option></select></div>
+        <div><label class="f">ROUNDS</label><select id="pRounds"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>6</option><option>8</option></select></div>
+      </div>
+      <button class="pxbtn go" id="pStart" style="width:100%;margin-top:14px;padding:14px">▶ START FOCUS</button>
+      <p class="muted" style="font-size:12px;margin-top:10px;line-height:1.6">Minutes of focus, then a short break, repeated. A bell marks every switch.</p>
+    </div>
+    <div id="timers"></div>
+  </section>
+
+  <!-- STOPWATCH -->
+  <section class="view" id="v-sw">
+    <div class="card">
+      <div class="sw" id="swT">00:00<small>.00</small></div>
+      <div class="swbtns"><button class="pxbtn" id="swLap">LAP</button><button class="pxbtn go" id="swGo">START</button></div>
+      <ul class="laps" id="laps"></ul>
+    </div>
+  </section>
+
+  <!-- BEDTIME -->
+  <section class="view" id="v-bed">
+    <div class="card">
+      <h2>🌙 BEDTIME SCHEDULE</h2>
+      <div class="grid2">
+        <div><label class="f">BEDTIME</label><input type="time" id="bedT"></div>
+        <div><label class="f">WAKE UP</label><input type="time" id="wakeT"></div>
+      </div>
+      <label class="f">DAYS</label>
+      <div class="days" id="bedDays"></div>
+      <div class="stat" id="sleepLen"></div>
+      <div class="sleepbar"><i id="sleepFill"></i></div>
+      <div class="sleepinfo"><span>12 AM</span><span>6 AM</span><span>12 PM</span><span>6 PM</span><span>12 AM</span></div>
+      <label class="f">WIND-DOWN REMINDER</label>
+      <select id="bedRemind"><option value="0">Off</option><option value="15">15 min before bed</option><option value="30">30 min before bed</option><option value="60">1 hour before bed</option></select>
+      <div class="rowflex" style="justify-content:space-between;margin-top:16px">
+        <span>⏰ Wake-up alarm</span><button class="tog" id="bedAlarmTog" aria-label="Wake-up alarm"></button>
+      </div>
+      <div class="rowflex" style="justify-content:space-between;margin-top:12px">
+        <span>🌙 Bedtime schedule</span><button class="tog" id="bedTog" aria-label="Bedtime schedule"></button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>📈 THIS WEEK</h2>
+      <div id="bedLog" class="muted" style="font-size:14px;line-height:1.8"></div>
+      <button class="pxbtn" id="bedSlept" style="margin-top:12px">💤 GOING TO BED NOW</button>
+    </div>
+  </section>
+</div>
+
+<button class="fab" id="fab" aria-label="Add alarm">+</button>
+
+<nav class="tabs">
+  <button data-v="alarm"><span>⏰</span>ALARM</button>
+  <button data-v="clock"><span>🕰</span>CLOCK</button>
+  <button data-v="timer"><span>⏳</span>TIMER</button>
+  <button data-v="sw"><span>⏱</span>WATCH</button>
+  <button data-v="bed"><span>🌙</span>BEDTIME</button>
+</nav>
+
+<div class="modal" id="editModal">
+  <div class="sheet">
+    <h2 id="editTitle">NEW ALARM</h2>
+    <input type="time" id="eTime" style="font-size:28px;padding:16px;text-align:center">
+    <label class="f">REPEAT</label>
+    <div class="seg" id="eMode"><button data-m="week">DAYS OF WEEK</button><button data-m="rot">SHIFT ROTATION</button></div>
+    <div id="eWeek" style="margin-top:10px"><div class="days" id="eDays"></div></div>
+    <div id="eRot" style="margin-top:10px">
+      <div class="rot">
+        <div><label class="f" style="margin-top:0">DAYS ON</label><input id="eOn" type="number" min="1" max="30" value="4"></div>
+        <div><label class="f" style="margin-top:0">DAYS OFF</label><input id="eOff" type="number" min="0" max="30" value="4"></div>
+        <div><label class="f" style="margin-top:0">FIRST DAY ON</label><input id="eStart" type="date"></div>
+      </div>
+      <div class="rotprev" id="eRotPrev"></div>
+    </div>
+    <label class="f">LABEL</label>
+    <input id="eLabel" placeholder="e.g. Work">
+    <label class="f">SOUND</label>
+    <div class="rowflex"><select id="eSound" style="flex:1"></select><button class="pxbtn" id="ePreview">▶</button></div>
+    <label class="f">SNOOZE LENGTH</label>
+    <select id="eSnooze"><option value="5">5 min</option><option value="9">9 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option></select>
+    <label class="f">TO TURN IT OFF</label>
+    <select id="eChal"><option value="none">Just tap Stop</option><option value="math">Solve a math problem</option><option value="math3">Solve 3 harder problems</option><option value="code">Type a random code</option><option value="tap">Tap 30 times</option></select>
+    <label class="f">SNOOZE LIMIT</label>
+    <select id="eMaxSnooze"><option value="-1">Unlimited</option><option value="0">No snoozing</option><option value="1">1 snooze</option><option value="2">2 snoozes</option><option value="3">3 snoozes</option></select>
+    <div class="rowflex" style="justify-content:space-between;margin-top:14px"><span>📳 Vibrate</span><button class="tog" id="eVibe" aria-label="Vibrate"></button></div>
+    <div class="btns"><button class="pxbtn warn" id="eDelete">DELETE</button><button class="pxbtn" id="eCancel">CANCEL</button><button class="pxbtn go" id="eSave">SAVE</button></div>
+  </div>
+</div>
+
+<div class="ring" id="ring">
+  <div class="bell">⏰</div>
+  <div class="t" id="ringT"></div>
+  <div class="l" id="ringL"></div>
+  <div class="btns"><button class="pxbtn orange" id="ringSnooze">SNOOZE</button><button class="pxbtn go" id="ringStop">STOP</button></div>
+  <div class="chal" id="chal"></div>
+</div>
+
+<div class="ns" id="ns">
+  <div class="glow" id="nsGlow"></div>
+  <div class="inner" id="nsInner"><canvas id="nsAnalog" width="88" height="88"></canvas><div class="t" id="nsT"></div><div class="d" id="nsD"></div></div>
+  <button class="x" id="nsClose">✕ EXIT</button>
+  <div class="hint" id="nsHint">Tap anywhere to dim · ✕ to exit</div>
+</div>
+
+<div class="modal" id="setModal"><div class="sheet">
+  <h2>⚙ SETTINGS</h2>
+  <div class="setrow"><span>24-hour clock</span><button class="tog" id="fmtTog" aria-label="24-hour clock"></button></div>
+  <div class="setrow"><span>Hourly station chime<small>A soft bell on the hour, 7 AM to 10 PM, while the app is open</small></span><button class="tog" id="chimeTog" aria-label="Hourly chime"></button></div>
+  <div class="setrow"><span>Nightstand clock</span><select id="nsStyle"><option value="digital">Digital</option><option value="analog">Railway clock</option></select></div>
+  <div class="setrow"><span>Nightstand colour<small>Night red is easiest on sleepy eyes</small></span><select id="nsColor"><option value="accent">Main colour</option><option value="red">Night red</option><option value="white">Soft white</option></select></div>
+  <div class="setrow"><span>Sunrise glow<small>The nightstand screen warms up over the 15 minutes before an alarm</small></span><button class="tog" id="glowTog" aria-label="Sunrise glow"></button></div>
+  <div class="setrow" id="appRow"></div>
+  <div class="btns"><button class="pxbtn go" id="setDone">DONE</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= Basics ================= */
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try { const v = localStorage.getItem('rt.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v){ try { localStorage.setItem('rt.' + k, JSON.stringify(v)); } catch {} }
+};
+function esc(s){ return String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+let toastTimer;
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
+const pad = n => String(n).padStart(2, '0');
+const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'], DAYNAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+let h24 = store.get('h24', false);
+let settings = { chime: false, nsStyle: 'digital', nsColor: 'accent', glow: true, ...store.get('settings', {}) };
+const rnd = n => Math.floor(Math.random() * n);
+const root = document.documentElement, cssVar = n => getComputedStyle(root).getPropertyValue(n).trim();
+function hm(h, m, withSuffix = true){
+  if (h24) return `${pad(h)}:${pad(m)}`;
+  const s = h < 12 ? 'AM' : 'PM', hh = h % 12 || 12;
+  return withSuffix ? `${hh}:${pad(m)}<small>${s}</small>` : `${hh}:${pad(m)} ${s}`;
+}
+function dur(ms){
+  const m = Math.ceil(ms / 60000), d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mm = m % 60;
+  return [d ? d + 'd' : '', h ? h + 'h' : '', (mm || (!d && !h)) ? mm + 'm' : ''].filter(Boolean).join(' ');
+}
+
+/* ================= Sound (synthesized chiptunes) ================= */
+let ac = null;
+function audio(){ if (!ac) ac = new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume(); return ac; }
+document.addEventListener('pointerdown', () => { try { audio(); } catch {} }, { once: true });
+const SOUNDS = {
+  'Pixel chime': [[784, .15], [988, .15], [1175, .15], [1568, .35], [0, .4]],
+  'Station bell': [[1319, .5], [0, .1], [1319, .5], [0, .6]],
+  'Train whistle': [[587, .9, 'saw'], [0, .15], [587, .4, 'saw'], [0, .6]],
+  'Classic beep': [[1000, .12], [0, .08], [1000, .12], [0, .08], [1000, .12], [0, .08], [1000, .12], [0, .5]],
+  'Sunrise': [[523, .25, 'tri'], [659, .25, 'tri'], [784, .25, 'tri'], [1047, .5, 'tri'], [0, .5]],
+  'Rooster (8-bit)': [[700, .1], [900, .1], [1200, .25], [1000, .3], [800, .4], [0, .5]]
+};
+let loopStop = null;
+function playOnce(name, gainBoost = 1){
+  const ctx = audio(), seq = SOUNDS[name] || SOUNDS['Pixel chime'];
+  let t = ctx.currentTime + 0.02;
+  seq.forEach(([f, d, type]) => {
+    if (f){
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type === 'saw' ? 'sawtooth' : type === 'tri' ? 'triangle' : 'square';
+      o.frequency.value = f;
+      if (type === 'saw') o.frequency.linearRampToValueAtTime(f * 0.94, t + d);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.12 * gainBoost, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+      o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + d + 0.02);
+    }
+    t += d;
+  });
+  return (t - ctx.currentTime) * 1000;
+}
+function startLoop(name){
+  stopLoop(); let alive = true, n = 0;
+  const go = () => { if (!alive) return; const ms = playOnce(name, Math.min(1 + n++ * 0.15, 3)); setTimeout(go, ms); };
+  try { go(); } catch {}
+  loopStop = () => { alive = false; };
+}
+function stopLoop(){ if (loopStop) loopStop(); loopStop = null; if (navigator.vibrate) navigator.vibrate(0); }
+
+/* ================= Notifications & wake lock ================= */
+async function notify(title, body){
+  if (NATIVE) return; // the Android app posts its own scheduled notifications
+  try {
+    if (Notification.permission !== 'granted') return;
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (reg) reg.showNotification(title, { body, tag: 'railwaytime', renotify: true, requireInteraction: true, icon: 'icon.svg' });
+    else new Notification(title, { body });
+  } catch {}
+}
+function banners(){
+  if (NATIVE){ $('banners').innerHTML = nativeWarn ? `<div class="banner"><span>${nativeWarn}</span></div>` : ''; return; }
+  const out = [];
+  if ('Notification' in window && Notification.permission === 'default') out.push(`<div class="banner"><span>Allow notifications so alarms and timers can alert you when this tab is in the background.</span><button class="pxbtn orange" id="askNotif">ALLOW</button></div>`);
+  if (!store.get('tipDismissed', false)) out.push(`<div class="banner"><span>Web heads-up: alarms ring while Railway Time is open. For alarms that ring even when it's closed, get the Android app in ⚙ Settings.</span><button class="pxbtn orange" id="tipOk">OK</button></div>`);
+  $('banners').innerHTML = out.join('');
+  const a = $('askNotif'); if (a) a.onclick = () => Notification.requestPermission().then(banners);
+  const t = $('tipOk'); if (t) t.onclick = () => { store.set('tipDismissed', true); banners(); };
+}
+let wakeLock = null;
+async function setWake(on, quiet){
+  try {
+    if (on){ if (!wakeLock){ wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; if (!document.hidden) $('wakeBtn').classList.remove('on'); }); } if (!quiet) toast('SCREEN STAYS AWAKE'); }
+    else { await wakeLock?.release(); wakeLock = null; }
+  } catch { if (!quiet) toast('WAKE LOCK NOT SUPPORTED'); on = false; }
+  $('wakeBtn').classList.toggle('on', !!on); store.set('wake', !!on);
+}
+$('wakeBtn').onclick = () => setWake(!wakeLock);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && store.get('wake', false) && !wakeLock) setWake(true); });
+
+/* ================= Alarms ================= */
+let alarms = store.get('alarms', [
+  { id: 1, h: 7, m: 0, days: [1, 2, 3, 4, 5], label: 'Work', on: false, sound: 'Pixel chime', snooze: 10, vibe: true },
+  { id: 2, h: 9, m: 30, days: [0, 6], label: 'Weekend', on: false, sound: 'Sunrise', snooze: 10, vibe: true }
+]);
+const dayNum = d => Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+const parseDate = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+// Shift rotation: N days on, M days off, counted from the first day on.
+function onShift(rot, d){ const i = dayNum(d) - dayNum(parseDate(rot.start)), cycle = rot.on + rot.off; return i >= 0 && i % cycle < rot.on; }
+function dayMatches(a, d){
+  if (a.mode === 'rot' && a.rot) return onShift(a.rot, d);
+  return !a.days.length || a.days.includes(d.getDay());
+}
+const repeats = a => (a.mode === 'rot' && a.rot) || a.days.length > 0;
+// Upcoming ring times between from and until (snooze first, skipped day left out).
+function occurrences(a, from, until, max = 60){
+  const out = [];
+  if (a.snoozeUntil && a.snoozeUntil > from) out.push(a.snoozeUntil);
+  const base = new Date(from);
+  for (let i = 0; i < 400 && out.length < max; i++){
+    const d = new Date(base.getFullYear(), base.getMonth(), base.getDate() + i, a.h, a.m, 0, 0);
+    if (d.getTime() > until) break;
+    if (d.getTime() <= from || !dayMatches(a, d)) continue;
+    if (a.skip && new Date(a.skip).toDateString() === d.toDateString()) continue;
+    if (out.length && a.snoozeUntil && Math.abs(d.getTime() - out[0]) < 60000) continue;
+    out.push(d.getTime());
+    if (!repeats(a)) break;
+  }
+  return out;
+}
+function nextFire(a, from = Date.now()){ return occurrences(a, from, from + 400 * 864e5, 1)[0] || null; }
+function saveAlarms(){
+  alarms.forEach(a => { if (a.skip && a.skip < Date.now() - 864e5) a.skip = 0; a.next = a.on ? nextFire(a) : null; });
+  store.set('alarms', alarms); renderAlarms(); renderNext(); syncNative();
+}
+function renderNext(){
+  const upcoming = alarms.filter(a => a.on && a.next).sort((a, b) => a.next - b.next)[0];
+  const txt = upcoming ? `Next alarm in <b>${dur(upcoming.next - Date.now())}</b> · ${DAYNAMES[new Date(upcoming.next).getDay()]} ${hm(new Date(upcoming.next).getHours(), new Date(upcoming.next).getMinutes(), false)}` : 'No alarms set.';
+  $('nextAlarm').innerHTML = txt;
+  const clockNext = document.getElementById('clockNext'); if (clockNext) clockNext.innerHTML = txt;
+}
+let openAlarm = null;
+function renderAlarms(){
+  if (!alarms.length){ $('alarmList').innerHTML = '<div class="empty"><span class="px">NO ALARMS</span>Tap + to add one.</div>'; return; }
+  const sorted = [...alarms].sort((a, b) => a.h * 60 + a.m - (b.h * 60 + b.m));
+  $('alarmList').innerHTML = sorted.map(a => {
+    const rep = a.mode === 'rot' && a.rot ? `🔁 ${a.rot.on} on / ${a.rot.off} off` : !a.days.length ? (a.on && a.next ? (new Date(a.next).toDateString() === new Date().toDateString() ? 'Today' : 'Tomorrow') : 'Once') : a.days.length === 7 ? 'Every day' : a.days.join() === '1,2,3,4,5' ? 'Weekdays' : a.days.join() === '0,6' ? 'Weekends' : a.days.map(d => DAYNAMES[d]).join(', ');
+    const chal = { math: '🧮', math3: '🧮', code: '⌨', tap: '👆' }[a.challenge];
+    const skip = a.on && repeats(a) && !a.bedtime ? `<button class="skip ${a.skip ? 'on' : ''}" data-skip="${a.id}">${a.skip ? 'SKIPPING ' + DAYNAMES[new Date(a.skip).getDay()].toUpperCase() : 'SKIP NEXT'}</button>` : '';
+    return `<div class="alarm ${a.on ? '' : 'off'} ${openAlarm === a.id ? 'open' : ''}" data-id="${a.id}">
+      <div class="tm" data-edit="${a.id}">${hm(a.h, a.m)}</div>
+      <button class="tog ${a.on ? 'on' : ''}" data-tog="${a.id}" aria-label="Toggle alarm"></button>
+      <div class="meta">${a.label ? `<b>${esc(a.label)}</b> · ` : ''}${rep}${chal ? `<span class="chip" title="Wake-up challenge">${chal}</span>` : ''}${a.snoozeUntil > Date.now() ? ' · 💤 snoozed' : ''}${a.on && a.next ? ` · in ${dur(a.next - Date.now())}` : ''}${skip}</div>
+    </div>`;
+  }).join('');
+  $('alarmList').querySelectorAll('[data-tog]').forEach(b => b.onclick = () => {
+    const a = alarms.find(x => x.id == b.dataset.tog); a.on = !a.on; a.snoozeUntil = 0; saveAlarms();
+    if (a.on) toast('ALARM IN ' + dur(a.next - Date.now()).toUpperCase());
+  });
+  $('alarmList').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => editAlarm(alarms.find(x => x.id == b.dataset.edit)));
+  $('alarmList').querySelectorAll('[data-skip]').forEach(b => b.onclick = () => {
+    const a = alarms.find(x => x.id == b.dataset.skip);
+    if (a.skip) { a.skip = 0; saveAlarms(); return toast('BACK ON'); }
+    const n = nextFire({ ...a, snoozeUntil: 0 }); if (!n) return;
+    a.skip = n; a.snoozeUntil = 0; saveAlarms(); toast('SKIPPING ' + new Date(n).toLocaleDateString([], { weekday: 'long' }).toUpperCase());
+  });
+}
+let editing = null, eDays = [], eVibe = true, eMode = 'week';
+function dayButtons(box, sel, onChange){
+  box.innerHTML = DAYS.map((d, i) => `<button data-d="${i}" class="${sel.includes(i) ? 'on' : ''}" aria-label="${DAYNAMES[i]}">${d}</button>`).join('');
+  box.querySelectorAll('button').forEach(b => b.onclick = () => { const i = +b.dataset.d; const s = sel.includes(i) ? sel.filter(x => x !== i) : [...sel, i].sort(); sel.length = 0; sel.push(...s); b.classList.toggle('on'); onChange && onChange(); });
+}
+function editAlarm(a){
+  editing = a || null;
+  const now = new Date(), d = a || { h: now.getHours(), m: (Math.ceil(now.getMinutes() / 5) * 5) % 60, days: [], label: '', sound: 'Pixel chime', snooze: 10, vibe: true };
+  const rot = d.rot || { on: 4, off: 4, start: ymd(now) };
+  $('eOn').value = rot.on; $('eOff').value = rot.off; $('eStart').value = rot.start;
+  setMode(d.mode === 'rot' ? 'rot' : 'week');
+  $('eChal').value = d.challenge || 'none'; $('eMaxSnooze').value = d.maxSnooze ?? -1;
+  $('editTitle').textContent = a ? 'EDIT ALARM' : 'NEW ALARM';
+  $('eTime').value = `${pad(d.h)}:${pad(d.m)}`; $('eLabel').value = d.label;
+  eDays = [...d.days]; dayButtons($('eDays'), eDays);
+  $('eSound').innerHTML = Object.keys(SOUNDS).map(s => `<option ${s === d.sound ? 'selected' : ''}>${s}</option>`).join('');
+  $('eSnooze').value = d.snooze; eVibe = d.vibe; $('eVibe').classList.toggle('on', eVibe);
+  $('eDelete').style.display = a ? '' : 'none';
+  $('editModal').classList.add('open');
+}
+$('eVibe').onclick = () => { eVibe = !eVibe; $('eVibe').classList.toggle('on', eVibe); };
+function setMode(m){
+  eMode = m;
+  $('eMode').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  $('eWeek').style.display = m === 'week' ? '' : 'none'; $('eRot').style.display = m === 'rot' ? '' : 'none';
+  rotPreview();
+}
+$('eMode').querySelectorAll('button').forEach(b => b.onclick = () => setMode(b.dataset.m));
+function readRot(){ return { on: Math.max(1, Math.min(30, +$('eOn').value || 1)), off: Math.max(0, Math.min(30, +$('eOff').value || 0)), start: $('eStart').value || ymd(new Date()) }; }
+function rotPreview(){
+  // Next 14 days so it's easy to check the pattern lines up with the real rota.
+  const r = readRot(), t = new Date();
+  $('eRotPrev').innerHTML = Array.from({ length: 14 }, (_, i) => { const d = new Date(t.getFullYear(), t.getMonth(), t.getDate() + i); return `<i class="${onShift(r, d) ? 'on' : ''}" title="${d.toDateString()}">${DAYS[d.getDay()]}</i>`; }).join('');
+}
+['eOn', 'eOff', 'eStart'].forEach(id => $(id).addEventListener('input', rotPreview));
+$('ePreview').onclick = () => { try { playOnce($('eSound').value); } catch {} };
+$('eCancel').onclick = () => $('editModal').classList.remove('open');
+$('editModal').onclick = e => { if (e.target === $('editModal')) $('editModal').classList.remove('open'); };
+$('eDelete').onclick = () => { alarms = alarms.filter(x => x !== editing); $('editModal').classList.remove('open'); saveAlarms(); toast('ALARM DELETED'); };
+$('eSave').onclick = () => {
+  const [h, m] = ($('eTime').value || '07:00').split(':').map(Number);
+  const vals = { h, m, days: eDays, mode: eMode, rot: readRot(), label: $('eLabel').value.trim(), sound: $('eSound').value, snooze: +$('eSnooze').value, vibe: eVibe, on: true, snoozeUntil: 0, snoozes: 0, skip: 0, challenge: $('eChal').value, maxSnooze: +$('eMaxSnooze').value };
+  if (editing) Object.assign(editing, vals); else alarms.push({ id: Date.now(), ...vals });
+  $('editModal').classList.remove('open'); saveAlarms();
+  const a = editing || alarms[alarms.length - 1]; toast('ALARM IN ' + dur(a.next - Date.now()).toUpperCase());
+  if (!NATIVE && 'Notification' in window && Notification.permission === 'default') Notification.requestPermission().then(banners);
+};
+$('fab').onclick = () => editAlarm();
+
+/* ================= Ringing ================= */
+let ringing = null; // { kind:'alarm'|'timer'|'bed', id }
+function ring(kind, obj, title, label){
+  if (ringing) return;
+  ringing = { kind, id: obj.id };
+  $('ring').classList.remove('challenge');
+  const left = obj.maxSnooze >= 0 ? obj.maxSnooze - (obj.snoozes || 0) : Infinity;
+  $('ringT').innerHTML = title; $('ringL').textContent = (label || '') + (kind === 'alarm' && left !== Infinity ? ` · ${left > 0 ? left + ' snooze' + (left === 1 ? '' : 's') + ' left' : 'no snoozes left'}` : '');
+  $('ringSnooze').style.display = kind === 'alarm' && left > 0 ? '' : 'none';
+  if (NATIVE) clearDelivered();
+  $('ringStop').textContent = kind === 'timer' ? 'DISMISS' : 'STOP';
+  $('ring').classList.add('show');
+  startLoop(obj.sound || 'Classic beep');
+  if (obj.vibe !== false && navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 400, 200, 400, 200, 400, 200, 400, 200, 400]);
+  notify(kind === 'timer' ? "⏳ Time's up!" : '⏰ ' + (label || 'Alarm'), kind === 'timer' ? (label || 'Timer done') : hm(new Date().getHours(), new Date().getMinutes(), false));
+  document.title = '⏰ ' + (label || 'Ringing') + ' — Railway Time';
+}
+function stopRing(snooze){
+  stopLoop(); $('ring').classList.remove('show'); document.title = 'Railway Time';
+  if (!ringing) return;
+  const { kind, id } = ringing; ringing = null;
+  if (NATIVE) clearDelivered();
+  if (kind === 'alarm'){
+    const a = alarms.find(x => x.id === id);
+    if (a){ if (snooze) snoozeAlarm(a); else finishAlarm(a); }
+  } else if (kind === 'timer'){
+    timers = timers.filter(t => t.id !== id); saveTimers();
+  }
+}
+function snoozeAlarm(a){ a.snoozes = (a.snoozes || 0) + 1; a.snoozeUntil = Date.now() + a.snooze * 60000; saveAlarms(); toast(`SNOOZED ${a.snooze} MIN`); }
+function finishAlarm(a){ a.snoozeUntil = 0; a.snoozes = 0; if (!repeats(a)) a.on = false; if (a.bedtime) logWake(); saveAlarms(); }
+$('ringStop').onclick = () => {
+  const a = ringing?.kind === 'alarm' && alarms.find(x => x.id === ringing.id);
+  if (a && a.challenge && a.challenge !== 'none') startChallenge(a); else stopRing(false);
+};
+// Wake-up challenges: the alarm keeps ringing until you prove you're awake.
+function startChallenge(a){
+  $('ring').classList.add('challenge');
+  if (a.challenge === 'tap'){
+    let n = 30;
+    $('chal').innerHTML = `<div class="prog">TAP TO PROVE YOU'RE UP</div><button class="tapbtn" id="tapBtn">30</button><button class="pxbtn" id="chalBack">◀ BACK</button>`;
+    $('tapBtn').onclick = () => { n--; $('tapBtn').textContent = n; if (navigator.vibrate) navigator.vibrate(15); if (n <= 0) stopRing(false); };
+    $('chalBack').onclick = () => $('ring').classList.remove('challenge');
+    return;
+  }
+  if (a.challenge === 'code'){
+    const code = Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[rnd(32)]).join('');
+    return ask(code, v => v.toUpperCase().replace(/\s/g, '') === code, 'TYPE THIS CODE', 'text');
+  }
+  const total = a.challenge === 'math3' ? 3 : 1; let done = 0;
+  const next = () => {
+    let q, ans;
+    if (total > 1){ const x = 6 + rnd(14), y = 3 + rnd(7), z = 10 + rnd(90); q = `${x} × ${y} + ${z}`; ans = x * y + z; }
+    else { const x = 10 + rnd(80), y = 10 + rnd(80); q = `${x} + ${y}`; ans = x + y; }
+    ask(q + ' = ?', v => v !== '' && +v === ans, total > 1 ? `PROBLEM ${done + 1} OF ${total}` : 'SOLVE IT TO STOP', 'numeric', () => { done++; if (done >= total) stopRing(false); else next(); });
+  };
+  next();
+}
+function ask(q, check, title, mode, onOk){
+  $('chal').innerHTML = `<div class="prog">${title}</div><div class="q">${esc(q)}</div><input id="chalIn" inputmode="${mode}" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Answer"><button class="pxbtn go" id="chalGo" style="width:100%;padding:16px">CHECK ✔</button><button class="pxbtn" id="chalBack">◀ BACK</button>`;
+  const go = () => {
+    const inp = $('chalIn');
+    if (check(inp.value.trim())) (onOk || (() => stopRing(false)))();
+    else { inp.value = ''; inp.classList.remove('bad'); void inp.offsetWidth; inp.classList.add('bad'); toast('NOPE. TRY AGAIN'); }
+  };
+  $('chalGo').onclick = go; $('chalIn').onkeydown = e => { if (e.key === 'Enter') go(); };
+  $('chalBack').onclick = () => $('ring').classList.remove('challenge');
+  setTimeout(() => $('chalIn')?.focus(), 60);
+}
+$('ringSnooze').onclick = () => stopRing(true);
+
+/* ================= Clock & world clock ================= */
+function tick(){
+  const now = new Date(), h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+  $('bigT').innerHTML = hm(h, m); $('bigS').textContent = pad(s);
+  $('bigD').textContent = now.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  drawAnalog(now);
+  renderCities(now);
+}
+function drawAnalog(now, c = $('analog'), CV = CLOCK){
+  // Pixel railway clock drawn on an 88x88 grid, scaled up crisp.
+  const x = c.getContext('2d'), N = 88, C = 44;
+  x.clearRect(0, 0, N, N);
+  const dot = (px, py, col, sz = 1) => { x.fillStyle = col; x.fillRect(Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz); };
+  for (let a = 0; a < 360; a += 1.2){ const r = a * Math.PI / 180; dot(C + Math.cos(r) * 41, C + Math.sin(r) * 41, CV.line, 3); }
+  x.fillStyle = CV.face; x.beginPath(); x.arc(C, C, 38, 0, Math.PI * 2); x.fill();
+  for (let i = 0; i < 60; i++){
+    const r = i / 60 * Math.PI * 2, big = i % 5 === 0;
+    for (let k = big ? 30 : 34; k <= 36; k++) dot(C + Math.sin(r) * k, C - Math.cos(r) * k, CV.ink, big ? 2 : 1);
+  }
+  const hand = (frac, len, w, col, tail = 0) => { const r = frac * Math.PI * 2; for (let k = -tail; k <= len; k += 0.5) dot(C + Math.sin(r) * k, C - Math.cos(r) * k, col, w); };
+  const ms = now.getMilliseconds(), s = now.getSeconds(), m = now.getMinutes(), h = now.getHours() % 12;
+  hand((h + m / 60) / 12, 20, 4, CV.ink, 4);
+  hand((m + s / 60) / 60, 30, 3, CV.ink, 5);
+  // Swiss railway style: the second hand sweeps in 58.5s and pauses at 12.
+  const sweep = Math.min((s + ms / 1000) / 58.5, 1);
+  hand(sweep, 26, 1, CV.sec, 8);
+  const r = sweep * Math.PI * 2; x.fillStyle = CV.sec; x.fillRect(Math.round(C + Math.sin(r) * 26) - 3, Math.round(C - Math.cos(r) * 26) - 3, 6, 6);
+  dot(C, C, CV.sec, 4);
+}
+// Clock-face colours follow the theme picker.
+const CLOCK = { line: '#2a2a4a', face: '#f4f1ff', ink: '#0b0b16', sec: '#ff5d8f' };
+function readCV(){ CLOCK.face = cssVar('--ink') || CLOCK.face; CLOCK.line = cssVar('--line') || CLOCK.line; CLOCK.ink = cssVar('--bg') || CLOCK.ink; CLOCK.sec = cssVar('--pink') || CLOCK.sec; }
+window.addEventListener('themechange', readCV); readCV();
+let cities = store.get('cities', [{ tz: 'Europe/London' }, { tz: 'Asia/Tokyo' }, { tz: 'America/Los_Angeles' }]);
+const zones = (Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : ['UTC', 'Europe/London', 'Europe/Paris', 'Europe/Berlin', 'Asia/Tokyo', 'Asia/Shanghai', 'Asia/Kolkata', 'Asia/Dubai', 'Australia/Sydney', 'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles', 'America/Sao_Paulo', 'Africa/Cairo', 'Pacific/Auckland']);
+const cityName = tz => tz.split('/').pop().replace(/_/g, ' ');
+$('tzList').innerHTML = zones.map(z => `<option value="${cityName(z)} — ${z}">`).join('');
+function tzParts(tz, d){
+  const f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(d);
+  const g = t => +f.find(p => p.type === t).value; return { h: g('hour'), m: g('minute'), Y: g('year'), M: g('month'), D: g('day') };
+}
+let lastCityMinute = -1;
+function renderCities(now){
+  if (now.getMinutes() === lastCityMinute && $('cities').childElementCount === cities.length) return;
+  lastCityMinute = now.getMinutes();
+  renderCds(now);
+  const here = { Y: now.getFullYear(), M: now.getMonth() + 1, D: now.getDate(), h: now.getHours(), m: now.getMinutes() };
+  const toMin = p => Date.UTC(p.Y, p.M - 1, p.D, p.h, p.m) / 60000;
+  $('cities').innerHTML = cities.length ? cities.map((c, i) => {
+    let p; try { p = tzParts(c.tz, now); } catch { return ''; }
+    const diff = (toMin(p) - toMin(here)) / 60, dayDiff = Date.UTC(p.Y, p.M - 1, p.D) - Date.UTC(here.Y, here.M - 1, here.D);
+    const rel = `${dayDiff > 0 ? 'Tomorrow' : dayDiff < 0 ? 'Yesterday' : 'Today'}, ${diff === 0 ? 'same time' : (diff > 0 ? '+' : '') + (Number.isInteger(diff) ? diff : diff.toFixed(1)) + ' hrs'}`;
+    const night = p.h < 6 || p.h >= 20;
+    return `<div class="city"><div class="nm"><b>${night ? '🌙' : '☀️'} ${esc(cityName(c.tz))}</b><span>${rel}</span></div><div class="tm">${hm(p.h, p.m)}</div><button class="x" data-rm="${i}" aria-label="Remove">✕</button></div>`;
+  }).join('') : '<div class="empty" style="padding:10px">Add cities to compare time zones.</div>';
+  $('cities').querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { cities.splice(+b.dataset.rm, 1); store.set('cities', cities); lastCityMinute = -1; tick(); });
+}
+$('tzAdd').onclick = () => {
+  const v = $('tzSearch').value.trim().toLowerCase(); if (!v) return;
+  const tz = zones.find(z => v.endsWith(z.toLowerCase())) || zones.find(z => cityName(z).toLowerCase() === v) || zones.find(z => z.toLowerCase().includes(v.replace(/ /g, '_')));
+  if (!tz) return toast('CITY NOT FOUND');
+  if (cities.some(c => c.tz === tz)) return toast('ALREADY ADDED');
+  cities.push({ tz }); store.set('cities', cities); $('tzSearch').value = ''; lastCityMinute = -1; tick();
+};
+$('tzSearch').addEventListener('keydown', e => { if (e.key === 'Enter') $('tzAdd').click(); });
+$('fmtTog').onclick = () => { h24 = !h24; store.set('h24', h24); $('fmtTog').classList.toggle('on', h24); lastCityMinute = -1; tick(); renderAlarms(); renderNext(); renderTimers(); };
+
+/* ================= Timers ================= */
+let timers = store.get('timers', []); // { id, label, total, end (if running), left (if paused) }
+const PRESETS = [[60, '1M'], [180, '3M'], [300, '5M'], [600, '10M'], [900, '15M'], [1800, '30M'], [2700, '45M'], [3600, '1H']];
+$('presets').innerHTML = PRESETS.map(([s, l]) => `<button class="pxbtn" data-s="${s}">${l}</button>`).join('');
+$('presets').querySelectorAll('button').forEach(b => b.onclick = () => addTimer(+b.dataset.s, $('tLabel').value.trim()));
+$('tStart').onclick = () => { const s = (+$('tH').value || 0) * 3600 + (+$('tM').value || 0) * 60 + (+$('tS').value || 0); if (s <= 0) return toast('SET A TIME'); addTimer(s, $('tLabel').value.trim()); };
+function addTimer(sec, label){ timers.unshift({ id: Date.now(), label: label || '', total: sec * 1000, end: Date.now() + sec * 1000, left: null }); $('tLabel').value = ''; saveTimers(); if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().then(banners); }
+function saveTimers(){ store.set('timers', timers); renderTimers(); syncNative(); }
+$('pStart').onclick = () => {
+  const f = +$('pFocus').value * 60000, b = +$('pBreak').value * 60000, r = +$('pRounds').value, seq = [];
+  for (let i = 0; i < r; i++){ seq.push({ label: `🍅 Focus ${i + 1}/${r}`, ms: f }); if (i < r - 1) seq.push({ label: `☕ Break ${i + 1}/${r - 1}`, ms: b }); }
+  timers.unshift({ id: Date.now(), seq, idx: 0, label: seq[0].label, total: f, end: Date.now() + f, left: null });
+  saveTimers(); toast(`FOCUS FOR ${$('pFocus').value} MIN`);
+};
+const clockStr = ms => { const s = Math.max(0, Math.ceil(ms / 1000)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return (h ? h + ':' + pad(m) : m) + ':' + pad(s % 60); };
+function remaining(t){ return t.end ? t.end - Date.now() : t.left; }
+function renderTimers(){
+  $('timers').innerHTML = timers.map(t => {
+    const rem = remaining(t), paused = !t.end;
+    return `<div class="card timer ${paused ? 'paused' : ''} ${ringing?.id === t.id ? 'ringing' : ''}" data-id="${t.id}">
+      <div class="lbl"><span>${esc(t.label || 'Timer')} · ${clockStr(t.total)}${t.seq ? ` · block ${t.idx + 1}/${t.seq.length}` : ''}</span><span>${paused ? 'PAUSED' : 'ends ' + hm(new Date(t.end).getHours(), new Date(t.end).getMinutes(), false)}</span></div>
+      <div class="rem" data-rem="${t.id}">${clockStr(rem)}</div>
+      <div class="rowflex"><button class="pxbtn ${paused ? 'go' : ''}" data-pp="${t.id}">${paused ? '▶ RESUME' : '❚❚ PAUSE'}</button><button class="pxbtn" data-plus="${t.id}">+1:00</button><button class="pxbtn" data-reset="${t.id}">↺</button><button class="pxbtn warn" data-del="${t.id}">✕</button></div>
+      <div class="bar" data-bar="${t.id}" style="width:${Math.max(0, rem / t.total * 100)}%"></div>
+    </div>`;
+  }).join('');
+  const T = id => timers.find(t => t.id == id);
+  $('timers').querySelectorAll('[data-pp]').forEach(b => b.onclick = () => { const t = T(b.dataset.pp); if (t.end){ t.left = t.end - Date.now(); t.end = null; } else { t.end = Date.now() + t.left; t.left = null; } saveTimers(); });
+  $('timers').querySelectorAll('[data-plus]').forEach(b => b.onclick = () => { const t = T(b.dataset.plus); t.total += 60000; if (t.end) t.end += 60000; else t.left += 60000; saveTimers(); });
+  $('timers').querySelectorAll('[data-reset]').forEach(b => b.onclick = () => { const t = T(b.dataset.reset); t.end = null; t.left = t.total; saveTimers(); });
+  $('timers').querySelectorAll('[data-del]').forEach(b => b.onclick = () => { timers = timers.filter(t => t.id != b.dataset.del); saveTimers(); });
+}
+function tickTimers(){
+  timers.forEach(t => {
+    const rem = remaining(t), el = document.querySelector(`[data-rem="${t.id}"]`), bar = document.querySelector(`[data-bar="${t.id}"]`);
+    if (el) el.textContent = clockStr(rem);
+    if (bar) bar.style.width = Math.max(0, rem / t.total * 100) + '%';
+    if (t.end && rem <= 0 && !ringing){
+      if (t.seq && t.idx < t.seq.length - 1){
+        // Focus cycle: chime and roll straight into the next block.
+        const over = -rem; t.idx++; const sgm = t.seq[t.idx];
+        t.label = sgm.label; t.total = sgm.ms; t.end = Date.now() + sgm.ms - over;
+        try { playOnce('Station bell'); } catch {}
+        notify(sgm.label, `${Math.round(sgm.ms / 60000)} minutes`); toast(sgm.label.toUpperCase());
+        saveTimers();
+      } else { ring('timer', t, "TIME'S UP", t.seq ? '🎉 Focus session done' : t.label || clockStr(t.total) + ' timer'); renderTimers(); }
+    }
+  });
+  const running = timers.filter(t => t.end).sort((a, b) => a.end - b.end)[0];
+  if (!ringing) document.title = running && document.hidden ? '⏳ ' + clockStr(running.end - Date.now()) + ' — Railway Time' : 'Railway Time';
+}
+
+/* ================= Stopwatch ================= */
+let sw = store.get('sw', { start: null, acc: 0, laps: [] });
+const swNow = () => sw.acc + (sw.start ? Date.now() - sw.start : 0);
+function swFmt(ms){ const cs = Math.floor(ms / 10) % 100, s = Math.floor(ms / 1000) % 60, m = Math.floor(ms / 60000) % 60, h = Math.floor(ms / 3600000); return { main: (h ? h + ':' + pad(m) : pad(m)) + ':' + pad(s), cs: '.' + pad(cs) }; }
+function renderSw(){
+  const f = swFmt(swNow()); $('swT').innerHTML = `${f.main}<small>${f.cs}</small>`;
+}
+function renderLaps(){
+  $('swGo').textContent = sw.start ? 'STOP' : swNow() ? 'RESUME' : 'START';
+  $('swGo').className = 'pxbtn ' + (sw.start ? 'warn' : 'go');
+  $('swLap').textContent = sw.start || !swNow() ? 'LAP' : 'RESET';
+  $('swLap').disabled = !sw.start && !swNow();
+  const splits = sw.laps.map((t, i) => t - (sw.laps[i - 1] || 0));
+  const best = splits.length > 2 ? Math.min(...splits) : null, worst = splits.length > 2 ? Math.max(...splits) : null;
+  $('laps').innerHTML = splits.map((s, i) => { const a = swFmt(s), b = swFmt(sw.laps[i]); return `<li class="${s === best ? 'best' : s === worst ? 'worst' : ''}"><span>#${i + 1}</span><span>${a.main}${a.cs}</span><span>${b.main}${b.cs}</span></li>`; }).reverse().join('');
+}
+$('swGo').onclick = () => { if (sw.start){ sw.acc += Date.now() - sw.start; sw.start = null; } else sw.start = Date.now(); store.set('sw', sw); renderLaps(); };
+$('swLap').onclick = () => { if (sw.start) sw.laps.push(swNow()); else sw = { start: null, acc: 0, laps: [] }; store.set('sw', sw); renderLaps(); renderSw(); };
+
+/* ================= Bedtime ================= */
+let bed = store.get('bed', { bed: '22:30', wake: '06:30', days: [0, 1, 2, 3, 4, 5, 6], remind: 30, alarm: true, on: false, log: [] });
+const bedDays = bed.days;
+function syncBedAlarm(){
+  // The wake-up alarm lives in the alarm list (tagged bedtime) so ringing/snooze share one path.
+  const [h, m] = bed.wake.split(':').map(Number);
+  let a = alarms.find(x => x.bedtime);
+  if (bed.on && bed.alarm){
+    if (!a){ a = { id: Date.now(), bedtime: true, sound: 'Sunrise', snooze: 10, vibe: true }; alarms.push(a); }
+    Object.assign(a, { h, m, days: [...bed.days], label: 'Bedtime wake-up', on: true });
+  } else if (a) alarms = alarms.filter(x => x !== a);
+  saveAlarms();
+}
+function renderBed(){
+  $('bedT').value = bed.bed; $('wakeT').value = bed.wake; $('bedRemind').value = bed.remind;
+  $('bedAlarmTog').classList.toggle('on', bed.alarm); $('bedTog').classList.toggle('on', bed.on);
+  const [bh, bm] = bed.bed.split(':').map(Number), [wh, wm] = bed.wake.split(':').map(Number);
+  const b = bh * 60 + bm, w = wh * 60 + wm, len = (w - b + 1440) % 1440;
+  $('sleepLen').textContent = `${Math.floor(len / 60)}H ${pad(len % 60)}M SLEEP`;
+  $('sleepLen').style.color = len >= 420 && len <= 540 ? 'var(--teal)' : 'var(--orange)';
+  const fill = $('sleepFill');
+  if (w > b){ fill.style.left = b / 1440 * 100 + '%'; fill.style.width = len / 1440 * 100 + '%'; }
+  else { fill.style.left = b / 1440 * 100 + '%'; fill.style.width = (1440 - b) / 1440 * 100 + '%'; }
+  let extra = document.getElementById('sleepFill2'); if (!extra){ extra = document.createElement('i'); extra.id = 'sleepFill2'; fill.parentNode.appendChild(extra); }
+  extra.style.display = w > b ? 'none' : ''; extra.style.left = '0'; extra.style.width = w / 1440 * 100 + '%';
+  const week = bed.log.filter(l => Date.now() - l.bed < 7 * 864e5);
+  $('bedLog').innerHTML = week.length ? week.map(l => `${new Date(l.bed).toLocaleDateString([], { weekday: 'short' })}: ${l.wake ? dur(l.wake - l.bed) : 'in bed since ' + hm(new Date(l.bed).getHours(), new Date(l.bed).getMinutes(), false)}`).join('<br>') + `<br><b style="color:var(--teal)">On schedule ${week.filter(l => l.onTime).length}/${week.length} nights</b>` : 'Tap "Going to bed now" at night and stop your wake-up alarm in the morning to build your sleep log.';
+}
+dayButtons($('bedDays'), bedDays, () => { bed.days = bedDays; saveBed(); });
+function saveBed(){ store.set('bed', bed); renderBed(); syncBedAlarm(); }
+$('bedT').onchange = () => { bed.bed = $('bedT').value || bed.bed; saveBed(); };
+$('wakeT').onchange = () => { bed.wake = $('wakeT').value || bed.wake; saveBed(); };
+$('bedRemind').onchange = () => { bed.remind = +$('bedRemind').value; saveBed(); };
+$('bedAlarmTog').onclick = () => { bed.alarm = !bed.alarm; saveBed(); };
+$('bedTog').onclick = () => { bed.on = !bed.on; saveBed(); toast(bed.on ? 'BEDTIME SCHEDULE ON' : 'BEDTIME OFF'); };
+$('bedSlept').onclick = () => {
+  const now = new Date(), [bh, bm] = bed.bed.split(':').map(Number), target = bh * 60 + bm, cur = now.getHours() * 60 + now.getMinutes();
+  const off = Math.min(Math.abs(cur - target), 1440 - Math.abs(cur - target));
+  bed.log = bed.log.filter(l => Date.now() - l.bed < 14 * 864e5); bed.log.push({ bed: Date.now(), wake: null, onTime: off <= 30 });
+  saveBed(); toast(off <= 30 ? 'ON TIME! +15 XP · SWEET DREAMS' : 'SWEET DREAMS 🌙');
+  setWake(true);
+};
+function logWake(){ const l = bed.log[bed.log.length - 1]; if (l && !l.wake && Date.now() - l.bed < 16 * 3600e3){ l.wake = Date.now(); store.set('bed', bed); renderBed(); } }
+function checkBedReminder(now){
+  if (NATIVE || !bed.on || !bed.remind) return; // the Android app schedules these itself
+  const [bh, bm] = bed.bed.split(':').map(Number), t = new Date(now.getFullYear(), now.getMonth(), now.getDate(), bh, bm).getTime() - bed.remind * 60000;
+  if (!bed.days.includes(new Date(t + bed.remind * 60000).getDay())) return;
+  const key = 'remind.' + new Date(t).toDateString();
+  if (now >= t && now - t < 5 * 60000 && !store.get(key, false)){
+    store.set(key, true);
+    try { playOnce('Station bell'); } catch {}
+    notify('🌙 Time to wind down', `Bedtime at ${hm(bh, bm, false)}. Screens down, lights low.`);
+    toast(`WIND DOWN: BED AT ${hm(bh, bm, false)}`);
+  }
+}
+
+/* ================= Main loop ================= */
+function checkAlarms(){
+  const now = Date.now(); let changed = false;
+  alarms.forEach(a => {
+    if (!a.on || !a.next) return;
+    if (now >= a.next){
+      const late = now - a.next;
+      // The Android app already rang it through the system; on the web it was genuinely missed.
+      if (late > 10 * 60000){ if (!NATIVE) toast(`MISSED ALARM ${hm(a.h, a.m, false)}`); a.snoozeUntil = 0; a.snoozes = 0; if (!repeats(a)) a.on = false; changed = true; return; }
+      if (!ringing){ a.next = null; ring('alarm', a, hm(new Date().getHours(), new Date().getMinutes()), a.label || 'Alarm'); }
+    }
+  });
+  if (changed) saveAlarms();
+}
+let lastSec = -1;
+function loop(){
+  const now = new Date();
+  if (now.getSeconds() !== lastSec){
+    lastSec = now.getSeconds(); checkAlarms(); checkBedReminder(now); checkCds(now);
+    if (lastSec === 0){
+      renderNext(); if ($('v-alarm').classList.contains('on')) renderAlarms();
+      if (settings.chime && now.getMinutes() === 0 && now.getHours() >= 7 && now.getHours() <= 22 && !ringing) try { playOnce('Station bell', 0.6); } catch {}
+    }
+    renderNs();
+  }
+  if (ns.on && settings.nsStyle === 'analog') drawAnalog(now, $('nsAnalog'), nsPalette());
+  if ($('v-clock').classList.contains('on')) tick();
+  if ($('v-sw').classList.contains('on')) renderSw();
+  tickTimers();
+}
+
+
+/* ================= Countdowns ================= */
+let cds = store.get('cds', []);
+function saveCds(){ store.set('cds', cds); renderCds(new Date()); syncNative(); }
+function renderCds(now){
+  const list = [...cds].sort((a, b) => a.at - b.at);
+  $('cds').innerHTML = list.length ? list.map(c => {
+    const diff = c.at - now, when = new Date(c.at), sameDay = when.toDateString() === now.toDateString();
+    let big, small;
+    if (diff > 0){ const d = Math.floor(diff / 864e5), h = Math.floor(diff % 864e5 / 3600e3), m = Math.ceil(diff % 3600e3 / 60000); big = d ? `${d}D ${h}H` : h ? `${h}H ${m}M` : `${m}M`; small = sameDay ? 'TODAY!' : 'TO GO'; }
+    else { const d = Math.floor(-diff / 864e5); big = sameDay || d === 0 ? 'NOW!' : `${d}D`; small = sameDay || d === 0 ? '🎉 IT\'S HERE' : 'AGO'; }
+    return `<div class="cd"><div class="ic">${esc(c.icon)}</div><div class="nm"><b>${esc(c.name)}</b><span>${when.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric', year: when.getFullYear() !== now.getFullYear() ? 'numeric' : undefined })} · ${hm(when.getHours(), when.getMinutes(), false)}</span></div><div class="left">${big}<small>${small}</small></div><button class="x" data-cdrm="${c.id}" aria-label="Remove">✕</button></div>`;
+  }).join('') : '<div class="empty" style="padding:10px">Count down to trips, birthdays, payday, your last shift…</div>';
+  $('cds').querySelectorAll('[data-cdrm]').forEach(b => b.onclick = () => { cds = cds.filter(c => c.id != b.dataset.cdrm); saveCds(); });
+}
+$('cdAdd').onclick = () => {
+  const name = $('cdName').value.trim(), v = $('cdAt').value;
+  if (!name) return toast('NAME IT FIRST');
+  if (!v) return toast('PICK A DATE');
+  const at = new Date(v).getTime();
+  cds.push({ id: Date.now(), name, icon: $('cdIcon').value, at, fired: at <= Date.now() });
+  $('cdName').value = ''; $('cdAt').value = ''; saveCds(); toast('COUNTDOWN ADDED');
+};
+function checkCds(now){
+  cds.forEach(c => { if (!c.fired && now >= c.at){ c.fired = true; store.set('cds', cds); if (!NATIVE) try { playOnce('Sunrise'); } catch {} toast(`${c.icon} ${c.name.toUpperCase()} IS HERE!`); notify(`${c.icon} ${c.name}`, "It's here!"); renderCds(now); } });
+}
+
+/* ================= Nightstand ================= */
+// Full-screen bedside clock: dims on tap, drifts a little every minute so the screen
+// doesn't burn in, and glows like a sunrise as the next alarm gets close.
+const NS_LEVELS = [1, 0.55, 0.28, 0.12];
+const ns = { on: false, level: 0, minute: -1 };
+function nsColour(){ return settings.nsColor === 'red' ? '#ff3b30' : settings.nsColor === 'white' ? '#d9d4c7' : cssVar('--teal'); }
+function nsPalette(){ const c = nsColour(); return { line: '#151515', face: '#000', ink: c, sec: settings.nsColor === 'accent' ? cssVar('--pink') : c }; }
+function openNs(){
+  ns.on = true; ns.level = 0; ns.minute = -1;
+  $('ns').classList.add('show'); $('nsHint').style.opacity = 1; setTimeout(() => $('nsHint').style.opacity = 0, 4000);
+  setWake(true, true); try { root.requestFullscreen?.().catch(() => {}); } catch {}
+  renderNs();
+}
+function closeNs(){ ns.on = false; $('ns').classList.remove('show'); try { if (document.fullscreenElement) document.exitFullscreen(); } catch {} if (!store.get('wake', false)) setWake(false, true); }
+$('nsBtn').onclick = openNs;
+$('nsClose').onclick = e => { e.stopPropagation(); closeNs(); };
+$('ns').onclick = () => { ns.level = (ns.level + 1) % NS_LEVELS.length; renderNs(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && ns.on) closeNs(); });
+function renderNs(){
+  if (!ns.on) return;
+  const now = new Date(), analog = settings.nsStyle === 'analog';
+  $('ns').style.setProperty('--ns-c', nsColour());
+  $('nsInner').style.opacity = NS_LEVELS[ns.level];
+  $('nsAnalog').style.display = analog ? '' : 'none'; $('nsT').style.display = analog ? 'none' : '';
+  if (analog) drawAnalog(now, $('nsAnalog'), nsPalette());
+  else $('nsT').innerHTML = hm(now.getHours(), now.getMinutes());
+  const up = alarms.filter(a => a.on && a.next).sort((a, b) => a.next - b.next)[0];
+  const soon = up && up.next - now < 864e5;
+  $('nsD').innerHTML = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' }).toUpperCase() + (soon ? `<br>⏰ ${hm(new Date(up.next).getHours(), new Date(up.next).getMinutes(), false)} · IN ${dur(up.next - now).toUpperCase()}` : '');
+  const glow = settings.glow && up ? Math.max(0, 1 - (up.next - now) / (15 * 60000)) : 0;
+  $('nsGlow').style.opacity = glow > 0 && glow <= 1 ? (0.15 + glow * 0.6).toFixed(2) : 0;
+  if (now.getMinutes() !== ns.minute){ ns.minute = now.getMinutes(); $('nsInner').style.transform = `translate(${rnd(41) - 20}px, ${rnd(61) - 30}px)`; }
+}
+
+/* ================= Settings ================= */
+function saveSettings(){ store.set('settings', settings); renderSettings(); renderNs(); }
+function renderSettings(){
+  $('fmtTog').classList.toggle('on', h24); $('chimeTog').classList.toggle('on', settings.chime); $('glowTog').classList.toggle('on', settings.glow);
+  $('nsStyle').value = settings.nsStyle; $('nsColor').value = settings.nsColor;
+  $('appRow').innerHTML = NATIVE
+    ? `<span>📱 Android app<small>Alarms, timers and reminders ring through Android, even when Railway Time is closed.</small></span><span class="pill ${nativeWarn ? 'warn' : ''}">${nativeWarn ? 'NOTIFICATIONS OFF' : nativeExact === false ? 'NOT EXACT' : 'ACTIVE'}</span>`
+    : `<span>📱 Android app<small>Alarms that ring even when the app is closed or the phone is locked.</small></span><a class="pxbtn go" href="https://github.com/Hootywhooo86/railwaytime/releases/tag/android-latest" target="_blank" rel="noopener">GET APK</a>`;
+}
+$('setBtn').onclick = () => { renderSettings(); $('setModal').classList.add('open'); };
+$('setDone').onclick = () => $('setModal').classList.remove('open');
+$('setModal').onclick = e => { if (e.target === $('setModal')) $('setModal').classList.remove('open'); };
+$('chimeTog').onclick = () => { settings.chime = !settings.chime; saveSettings(); if (settings.chime) try { playOnce('Station bell', 0.6); } catch {} };
+$('glowTog').onclick = () => { settings.glow = !settings.glow; saveSettings(); };
+$('nsStyle').onchange = () => { settings.nsStyle = $('nsStyle').value; saveSettings(); };
+$('nsColor').onchange = () => { settings.nsColor = $('nsColor').value; saveSettings(); };
+
+/* ================= Android app (Capacitor) ================= */
+// In the Android build every alarm, timer, reminder and countdown is handed to Android's
+// alarm manager as an exact notification, so it rings even when Railway Time is closed.
+// The web app keeps working exactly as before; this block is inert outside the app.
+var NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
+var LN = NATIVE ? Capacitor.registerPlugin('LocalNotifications') : null;
+var nativeReady = false, nativeWarn = '', nativeExact = null, syncTimer = null;
+const SLUG = { 'Pixel chime': 'pixel_chime', 'Station bell': 'station_bell', 'Train whistle': 'train_whistle', 'Classic beep': 'classic_beep', 'Sunrise': 'sunrise', 'Rooster (8-bit)': 'rooster' };
+function clearDelivered(){ LN?.removeAllDeliveredNotifications().catch(() => {}); setTimeout(() => LN?.removeAllDeliveredNotifications().catch(() => {}), 1500); }
+async function nativeInit(){
+  try {
+    let p = await LN.checkPermissions();
+    if (p.display !== 'granted') p = await LN.requestPermissions();
+    if (p.display !== 'granted'){ nativeWarn = "Notifications are off, so alarms can't ring while Railway Time is closed. Turn them on in Android Settings → Apps → Railway Time → Notifications."; banners(); return; }
+    try { nativeExact = (await LN.checkExactNotificationSetting()).exact_alarm === 'granted'; } catch {}
+    for (const [name, slug] of Object.entries(SLUG))
+      await LN.createChannel({ id: 'alarm_' + slug, name: 'Alarm: ' + name, description: 'Alarms and timers with the ' + name + ' sound', importance: 5, visibility: 1, sound: slug + '.wav', vibration: true, lights: true, lightColor: '#2DD4BF' });
+    await LN.createChannel({ id: 'reminders', name: 'Reminders', description: 'Wind-down reminders, focus cycles and countdowns', importance: 4, visibility: 1, sound: 'station_bell.wav', vibration: false });
+    await LN.registerActionTypes({ types: [
+      { id: 'ALARM', actions: [{ id: 'snooze', title: 'Snooze' }, { id: 'stop', title: 'Stop', destructive: true }] },
+      { id: 'ALARM_STOP', actions: [{ id: 'stop', title: 'Stop', destructive: true }] },
+      { id: 'ALARM_SNOOZE', actions: [{ id: 'snooze', title: 'Snooze' }] },
+      { id: 'TIMER', actions: [{ id: 'stop', title: 'Dismiss', destructive: true }] }
+    ] });
+    LN.addListener('localNotificationReceived', n => onNative(n, 'received'));
+    LN.addListener('localNotificationActionPerformed', e => onNative(e.notification, e.actionId));
+    nativeReady = true; banners(); syncNative();
+  } catch (e){ console.warn('Railway Time native setup failed', e); }
+}
+function syncNative(){ if (!nativeReady) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => doSync().catch(e => console.warn('sync', e)), 300); }
+async function doSync(){
+  const now = Date.now(), list = [], icon = { smallIcon: 'ic_stat_alarm', iconColor: cssVar('--teal') || '#2dd4bf' };
+  let id = 1;
+  const add = (n, at) => { if (at > now + 1000) list.push({ id: id++, ...icon, ...n, schedule: { at: new Date(at), allowWhileIdle: true } }); };
+  // Alarms: the next three weeks of occurrences; re-planned every time the app opens or anything changes.
+  alarms.filter(a => a.on).forEach(a => {
+    const chal = a.challenge && a.challenge !== 'none', canSnooze = !(a.maxSnooze >= 0) || (a.snoozes || 0) < a.maxSnooze;
+    const type = chal ? (canSnooze ? 'ALARM_SNOOZE' : undefined) : (canSnooze ? 'ALARM' : 'ALARM_STOP');
+    occurrences(a, now, now + 21 * 864e5, 40).forEach(at => add({
+      title: '⏰ ' + (a.label || 'Alarm'), body: hm(new Date(at).getHours(), new Date(at).getMinutes(), false) + (chal ? ' · open Railway Time to turn it off' : ''),
+      channelId: 'alarm_' + (SLUG[a.sound] || 'pixel_chime'), actionTypeId: type, ongoing: true, autoCancel: false, extra: { kind: 'alarm', aid: a.id, at }
+    }, at));
+  });
+  timers.filter(t => t.end).forEach(t => {
+    const segs = t.seq ? t.seq.slice(t.idx) : [{ label: t.label, ms: t.total }];
+    let at = t.end;
+    segs.forEach((sg, i) => {
+      if (i) at += sg.ms;
+      const last = i === segs.length - 1, nxt = segs[i + 1];
+      add(last ? { title: "⏳ Time's up!", body: t.seq ? 'Focus session done 🎉' : (t.label || clockStr(t.total) + ' timer'), channelId: 'alarm_classic_beep', actionTypeId: 'TIMER', ongoing: true, autoCancel: false, extra: { kind: 'timer', tid: t.id } }
+               : { title: nxt.label, body: Math.round(nxt.ms / 60000) + ' minutes', channelId: 'reminders', extra: { kind: 'seg', tid: t.id } }, at);
+    });
+  });
+  if (bed.on && bed.remind){
+    const [bh, bm] = bed.bed.split(':').map(Number), d0 = new Date();
+    for (let i = 0; i < 14; i++){
+      const b = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + i, bh, bm);
+      if (bed.days.includes(b.getDay())) add({ title: '🌙 Time to wind down', body: `Bedtime at ${hm(bh, bm, false)}. Screens down, lights low.`, channelId: 'reminders', extra: { kind: 'bed' } }, b.getTime() - bed.remind * 60000);
+    }
+  }
+  cds.filter(c => !c.fired).forEach(c => add({ title: `${c.icon} ${c.name}`, body: "It's here!", channelId: 'reminders', extra: { kind: 'cd', cid: c.id } }, c.at));
+  const pending = (await LN.getPending()).notifications || [];
+  if (pending.length) await LN.cancel({ notifications: pending.map(n => ({ id: n.id })) });
+  if (list.length) await LN.schedule({ notifications: list.slice(0, 450) });
+}
+function onNative(n, action){
+  const x = n?.extra || {};
+  if (x.kind === 'alarm'){
+    const a = alarms.find(z => z.id === x.aid); if (!a) return;
+    if (action === 'snooze'){ clearDelivered(); if (ringing?.id === a.id){ stopRing(true); } else snoozeAlarm(a); return; }
+    if (action === 'stop'){ clearDelivered(); if (ringing?.id === a.id){ stopLoop(); $('ring').classList.remove('show'); ringing = null; } finishAlarm(a); return; }
+    // App open when it fired, or the notification was tapped: ring here with Stop/Snooze/challenge.
+    if (Date.now() - x.at < 30 * 60000 && !ringing){ a.next = null; ring('alarm', a, hm(new Date().getHours(), new Date().getMinutes()), a.label || 'Alarm'); }
+  } else if (x.kind === 'timer'){
+    const t = timers.find(z => z.id === x.tid);
+    if (action === 'stop'){ clearDelivered(); if (ringing?.id === x.tid) stopRing(false); else { timers = timers.filter(z => z.id !== x.tid); saveTimers(); } }
+    else if (t && !ringing) ring('timer', t, "TIME'S UP", t.label || 'Timer');
+  }
+}
+
+/* ================= Tabs ================= */
+function show(v){
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  document.querySelectorAll('.view').forEach(s => s.classList.toggle('on', s.id === 'v-' + v));
+  $('fab').classList.toggle('show', v === 'alarm');
+  store.set('tab', v); lastCityMinute = -1;
+  if (v === 'alarm') renderAlarms();
+  if (v === 'sw'){ renderSw(); renderLaps(); }
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => show(b.dataset.v));
+const nextEl = document.createElement('div'); nextEl.className = 'next'; nextEl.id = 'clockNext'; document.querySelector('#v-clock .card').appendChild(nextEl);
+alarms.forEach(a => { if (a.on && !a.next) a.next = nextFire(a); });
+// Alarms whose time passed while the app was closed: report instead of ringing late.
+checkAlarms();
+saveAlarms(); renderTimers(); renderBed(); banners(); renderSettings(); show(store.get('tab', 'clock'));
+if (store.get('wake', false)) setWake(true, true);
+// rAF for smooth display when visible; interval keeps alarms firing when the tab is hidden.
+(function raf(){ loop(); requestAnimationFrame(raf); })();
+setInterval(loop, 1000);
+if (NATIVE) nativeInit();
+else if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>

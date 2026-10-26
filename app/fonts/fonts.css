@@ -1,0 +1,4 @@
+/* Bundled so the app keeps its pixel look offline and inside the Android app.
+   Press Start 2P (CodeMan38) and Inter (Rasmus Andersson) are both SIL Open Font License 1.1. */
+@font-face{font-family:'Press Start 2P';font-style:normal;font-weight:400;font-display:swap;src:url(pressstart2p-latin.woff2) format('woff2')}
+@font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;src:url(inter-latin.woff2) format('woff2')}
