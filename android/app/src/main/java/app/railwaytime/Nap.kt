@@ -229,35 +229,58 @@ class NapRingService : Service() {
  * in the railway crossing pattern — long, long, short, long.
  */
 class HornPlayer {
-    private var track: AudioTrack? = null
+    @Volatile private var running = false
+    private var thread: Thread? = null
 
+    /**
+     * Plays the pattern — over and over while [loop] — by writing it to the speaker ourselves.
+     * (Asking Android to loop a static clip played it only once on some phones.)
+     */
     fun start(loop: Boolean) {
         stop()
-        val pcm = pattern(RATE)
-        val t = AudioTrack(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build(),
-            AudioFormat.Builder()
-                .setSampleRate(RATE)
-                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                .build(),
-            pcm.size * 2, AudioTrack.MODE_STATIC, AudioManager.AUDIO_SESSION_ID_GENERATE,
-        )
-        t.write(pcm, 0, pcm.size)
-        if (loop) t.setLoopPoints(0, pcm.size, -1)
-        t.play()
-        track = t
+        running = true
+        thread = Thread {
+            val pcm = pattern(RATE)
+            val minBuf = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            val t = AudioTrack(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+                AudioFormat.Builder()
+                    .setSampleRate(RATE)
+                    .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                    .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                    .build(),
+                maxOf(minBuf, RATE), AudioTrack.MODE_STREAM, AudioManager.AUDIO_SESSION_ID_GENERATE,
+            )
+            try {
+                t.play()
+                do {
+                    var at = 0
+                    while (running && at < pcm.size) {
+                        val n = t.write(pcm, at, minOf(4_096, pcm.size - at))
+                        if (n <= 0) break
+                        at += n
+                    }
+                } while (running && loop)
+                // One-off (the test button): let the last of it play out.
+                while (running && !loop && t.playbackHeadPosition < pcm.size) Thread.sleep(50)
+            } catch (_: InterruptedException) {
+            } finally {
+                runCatching { t.pause(); t.flush(); t.stop() }
+                t.release()
+            }
+        }.apply {
+            name = "railwaytime-horn"
+            start()
+        }
     }
 
     fun stop() {
-        track?.run {
-            runCatching { stop() }
-            release()
-        }
-        track = null
+        running = false
+        thread?.join(1_000)
+        thread = null
     }
 
     companion object {
