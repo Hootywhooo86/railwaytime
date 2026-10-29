@@ -17,7 +17,7 @@ data class AppSettings(
     val boardInRailtime: Boolean = true,
     /** You get ordered this long before a train's planned time. */
     val callLeadMin: Int = 120,
-    val refreshMin: Int = 10,
+    val refreshMin: Int = 60,
     val ivrmUrl: String = "https://ivrm.cn.ca/",
     val sharepointUrl: String = "https://cnrail.sharepoint.com/sites/CN/SitePages/Home.aspx",
 ) {

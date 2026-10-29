@@ -17,7 +17,7 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 
 /**
  * Backup way in that always works: open IVRM in Chrome, then share a screenshot (or the
- * copied page text) to Railway Time. Text is read on the phone; nothing is uploaded.
+ * copied page text) to When Do I Work. Text is read on the phone; nothing is uploaded.
  */
 object Importer {
     /** Saves the board if [text] contains one. */
@@ -62,7 +62,7 @@ object Importer {
     ).show()
 }
 
-/** Receives "Share → Railway Time" from Chrome, Photos or the screenshot preview. */
+/** Receives "Share → When Do I Work" from Chrome, Photos or the screenshot preview. */
 class ImportActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

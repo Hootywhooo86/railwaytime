@@ -39,7 +39,7 @@
         <activity
             android:name=".ImportActivity"
             android:exported="true"
-            android:label="Railway Time board"
+            android:label="When Do I Work board"
             android:theme="@android:style/Theme.Translucent.NoTitleBar">
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />

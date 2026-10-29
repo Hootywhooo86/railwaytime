@@ -180,7 +180,7 @@ object RefreshScheduler {
     }
 }
 
-/** Every 15 minutes: re-arms the 10-minute alarm if it was lost, and refreshes if one is overdue. */
+/** Every 15 minutes: re-arms the refresh alarm if it was lost, and refreshes if one is overdue. */
 class WatchdogWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         RefreshScheduler.ensure(applicationContext)

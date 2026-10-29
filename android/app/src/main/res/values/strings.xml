@@ -1,4 +1,4 @@
 <resources>
-    <string name="app_name">Railway Time</string>
+    <string name="app_name">When Do I Work</string>
     <string name="widget_description">Railtime clock, board position and your likely train</string>
 </resources>

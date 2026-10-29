@@ -78,7 +78,7 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.rail_offset).text =
             if (offset == 0) "Railtime = local time" else "Railtime = local ${if (offset > 0) "+" else ""}${offset} min"
 
-        // Battery optimisation can hold the 10-minute refresh back for hours.
+        // Battery optimisation can hold the automatic refresh back for hours.
         findViewById<Button>(R.id.btn_battery).visibility =
             if (getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName)) View.GONE else View.VISIBLE
 
@@ -158,8 +158,8 @@ class MainActivity : Activity() {
             .setTitle("Update from Chrome")
             .setMessage(
                 "1. In Chrome, open CATS Information, Additional Board Information and Pool Lineup (tap each one).\n\n" +
-                    "2. Long-press any text → Select all → Share → Railway Time board.\n\n" +
-                    "Or take a screenshot with those open → Share → Railway Time board.",
+                    "2. Long-press any text → Select all → Share → When Do I Work board.\n\n" +
+                    "Or take a screenshot with those open → Share → When Do I Work board.",
             )
             .setPositiveButton("Open IVRM in Chrome") { _, _ ->
                 val uri = Uri.parse(Store(this).settings.ivrmUrl)
@@ -174,7 +174,7 @@ class MainActivity : Activity() {
     private fun shareDebug() {
         val store = Store(this)
         val text = buildString {
-            appendLine("Railway Time ${packageManager.getPackageInfo(packageName, 0).versionName} · Android ${android.os.Build.VERSION.RELEASE}")
+            appendLine("When Do I Work ${packageManager.getPackageInfo(packageName, 0).versionName} · Android ${android.os.Build.VERSION.RELEASE}")
             appendLine("Board page: ${CnWeb.safeUrl(store.boardUrl)} · status ${store.status} ${store.statusDetail.orEmpty()}")
             appendLine()
             appendLine("--- log ---")

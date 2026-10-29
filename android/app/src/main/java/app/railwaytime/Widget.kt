@@ -177,6 +177,8 @@ object Widget {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         v.setOnClickPendingIntent(R.id.line_updated, refresh)
+        v.setOnClickPendingIntent(R.id.refresh_button, refresh)
+        v.setViewVisibility(R.id.refresh_button, if (store.onDuty) View.GONE else View.VISIBLE)
 
         if (store.onDuty) {
             v.setTextViewText(R.id.duty_button, "ON DUTY")

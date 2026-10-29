@@ -164,7 +164,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="If sign-in won't load: open IVRM in Chrome, screenshot it, and Share → Railway Time board. Or Select all → Copy in Chrome and tap Paste."
+            android:text="If sign-in won't load: open IVRM in Chrome, screenshot it, and Share → When Do I Work board. Or Select all → Copy in Chrome and tap Paste."
             android:textColor="@color/muted"
             android:textSize="12sp" />
 

@@ -1,4 +1,4 @@
-# Railway Time 🚂
+# When Do I Work 🚂 (Railway Time)
 
 A widget-first 128bit app: a pixel railway clock for your home screen.
 
@@ -30,7 +30,7 @@ Widget-first means the home-screen widget is the product. Any full app behind it
 - **Board position** and who's ahead: available (`A0`), hold turn (`HT`, also when shown as `** HT`: holds the spot, doesn't go ahead of you until the Return time) and spare turns (`**` on its own: a spare works it, so it goes out ahead of you).
 - **Your rest** ("Rested 18 22:50 (in 7h06)") and the **next person off rest**.
 - **Your likely train**: walks the pool lineup in order. Each train is ordered 2 h before planned (configurable) and goes to the first turn, top down, that's off rest by then (`**`-only spare turns go right away, `HT` waits for its Return time and keeps its spot); if you're still on rest it passes you. It's an estimate.
-- **ON DUTY / OFF DUTY switch** on the widget. On duty: nothing is fetched from CN and board info is hidden, only the clocks show. Off duty: refreshes every 10 minutes.
+- **ON DUTY / OFF DUTY switch** on the widget. On duty: nothing is fetched from CN and board info is hidden, only the clocks show. Off duty: refreshes every hour, or tap ⟳ on the widget to refresh now.
 
 ### Nap Stop ⏰🚂
 

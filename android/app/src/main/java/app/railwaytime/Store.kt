@@ -107,7 +107,7 @@ class Store(context: Context) {
                 offsetAfterMin = prefs.getInt("offset_after", d.offsetAfterMin),
                 boardInRailtime = prefs.getBoolean("board_in_railtime", d.boardInRailtime),
                 callLeadMin = prefs.getInt("call_lead", d.callLeadMin),
-                refreshMin = prefs.getInt("refresh_min", d.refreshMin),
+                refreshMin = prefs.getInt("refresh_min_v2", d.refreshMin),
                 ivrmUrl = prefs.getString("ivrm_url", d.ivrmUrl)!!,
                 sharepointUrl = prefs.getString("sharepoint_url", d.sharepointUrl)!!,
             )
@@ -120,7 +120,7 @@ class Store(context: Context) {
                 .putInt("offset_after", s.offsetAfterMin)
                 .putBoolean("board_in_railtime", s.boardInRailtime)
                 .putInt("call_lead", s.callLeadMin)
-                .putInt("refresh_min", s.refreshMin)
+                .putInt("refresh_min_v2", s.refreshMin)
                 .putString("ivrm_url", s.ivrmUrl)
                 .putString("sharepoint_url", s.sharepointUrl)
                 .apply()
