@@ -1,4 +1,4 @@
-"""Builds Railway Time's Android assets: 30-second chiptune alarm sounds (res/raw) and
+"""Builds PixTime's Android assets: 30-second chiptune alarm sounds (res/raw) and
 pixel launcher + notification icons. Run from the repo root: python3 tools/make_assets.py"""
 import math, os, struct, wave
 from PIL import Image
