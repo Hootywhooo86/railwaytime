@@ -31,7 +31,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 
 /**
- * Lets Railway Time use every alarm, ringtone and notification sound on the phone (plus any
+ * Lets PixTime use every alarm, ringtone and notification sound on the phone (plus any
  * audio file), and makes alarm channels that play on the alarm stream and break through
  * Do Not Disturb once the user allows it.
  */
@@ -121,7 +121,7 @@ public class PhoneSounds extends Plugin {
                 v.put(MediaStore.Audio.Media.DISPLAY_NAME, title);
                 v.put(MediaStore.Audio.Media.TITLE, title.replaceAll("\\.[^.]+$", ""));
                 v.put(MediaStore.Audio.Media.MIME_TYPE, mime != null ? mime : "audio/mpeg");
-                v.put(MediaStore.Audio.Media.RELATIVE_PATH, "Alarms/Railway Time");
+                v.put(MediaStore.Audio.Media.RELATIVE_PATH, "Alarms/PixTime");
                 v.put(MediaStore.Audio.Media.IS_ALARM, 1);
                 dest = cr.insert(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, v);
                 if (dest == null) throw new Exception("Could not save the sound");

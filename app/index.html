@@ -4,8 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#0b0b16">
-<title>Railway Time</title>
-<meta name="description" content="Railway Time: a pixel clock app with alarms, world clock, timers, stopwatch and bedtime.">
+<title>PixTime</title>
+<meta name="description" content="PixTime: a pixel clock app with alarms, world clock, timers, stopwatch and bedtime.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
@@ -379,6 +379,7 @@
   <div class="setrow"><span>Sunrise glow<small>The nightstand screen warms up over the 15 minutes before an alarm</small></span><button class="tog" id="glowTog" aria-label="Sunrise glow"></button></div>
   <div class="setrow" id="appRow"></div>
   <div class="setrow" id="dndRow" style="display:none"></div>
+  <div class="setrow" id="fsRow" style="display:none"></div>
   <div class="btns"><button class="pxbtn go" id="setDone">DONE</button></div>
 </div></div>
 
@@ -472,7 +473,7 @@ function banners(){
   if (NATIVE){ $('banners').innerHTML = nativeWarn ? `<div class="banner"><span>${nativeWarn}</span></div>` : ''; return; }
   const out = [];
   if ('Notification' in window && Notification.permission === 'default') out.push(`<div class="banner"><span>Allow notifications so alarms and timers can alert you when this tab is in the background.</span><button class="pxbtn orange" id="askNotif">ALLOW</button></div>`);
-  if (!store.get('tipDismissed', false)) out.push(`<div class="banner"><span>Web heads-up: alarms ring while Railway Time is open. For alarms that ring even when it's closed, get the Android app in ⚙ Settings.</span><button class="pxbtn orange" id="tipOk">OK</button></div>`);
+  if (!store.get('tipDismissed', false)) out.push(`<div class="banner"><span>Web heads-up: alarms ring while PixTime is open. For alarms that ring even when it's closed, get the Android app in ⚙ Settings.</span><button class="pxbtn orange" id="tipOk">OK</button></div>`);
   $('banners').innerHTML = out.join('');
   const a = $('askNotif'); if (a) a.onclick = () => Notification.requestPermission().then(banners);
   const t = $('tipOk'); if (t) t.onclick = () => { store.set('tipDismissed', true); banners(); };
@@ -631,7 +632,7 @@ function renderSoundList(sel, selTitle){
   const opt = (v, t) => `<option value="${esc(v)}" ${v === sel ? 'selected' : ''}>${esc(t)}</option>`;
   const group = (label, list) => list.length ? `<optgroup label="${label}">${list.map(x => opt(x.uri, x.title)).join('')}</optgroup>` : '';
   const ps = phoneSounds || [], mine = store.get('mySounds', []);
-  let html = `<optgroup label="🚂 Railway Time">${Object.keys(SOUNDS).map(n => opt(n, n)).join('')}</optgroup>`;
+  let html = `<optgroup label="⏰ PixTime">${Object.keys(SOUNDS).map(n => opt(n, n)).join('')}</optgroup>`;
   if (NATIVE && PS){
     html += group('📁 My sounds', mine) + group('⏰ Phone alarms', ps.filter(x => x.type === 'alarm')) + group('📞 Phone ringtones', ps.filter(x => x.type === 'ringtone')) + group('🔔 Phone notifications', ps.filter(x => x.type === 'notification'));
     // Keep a sound that's no longer listed (e.g. list not loaded yet) selectable.
@@ -650,9 +651,9 @@ function pickedSound(){
 
 /* ================= Ringing ================= */
 let ringing = null; // { kind:'alarm'|'timer'|'bed', id }
-function ring(kind, obj, title, label){
+function ring(kind, obj, title, label, nativeOn){
   if (ringing) return;
-  ringing = { kind, id: obj.id };
+  ringing = { kind, id: obj.id, native: !!nativeOn };
   $('ring').classList.remove('challenge');
   const left = obj.maxSnooze >= 0 ? obj.maxSnooze - (obj.snoozes || 0) : Infinity;
   $('ringT').innerHTML = title; $('ringL').textContent = (label || '') + (kind === 'alarm' && left !== Infinity ? ` · ${left > 0 ? left + ' snooze' + (left === 1 ? '' : 's') + ' left' : 'no snoozes left'}` : '');
@@ -660,15 +661,16 @@ function ring(kind, obj, title, label){
   if (NATIVE) clearDelivered();
   $('ringStop').textContent = kind === 'timer' ? 'DISMISS' : 'STOP';
   $('ring').classList.add('show');
-  startLoop(obj.sound || 'Classic beep', obj.soundUri);
-  if (obj.vibe !== false && navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 400, 200, 400, 200, 400, 200, 400, 200, 400]);
+  if (!nativeOn){ startLoop(obj.sound || 'Classic beep', obj.soundUri);
+  if (obj.vibe !== false && navigator.vibrate) navigator.vibrate([400, 200, 400, 200, 400, 200, 400, 200, 400, 200, 400, 200, 400]); }
   notify(kind === 'timer' ? "⏳ Time's up!" : '⏰ ' + (label || 'Alarm'), kind === 'timer' ? (label || 'Timer done') : hm(new Date().getHours(), new Date().getMinutes(), false));
-  document.title = '⏰ ' + (label || 'Ringing') + ' — Railway Time';
+  document.title = '⏰ ' + (label || 'Ringing') + ' — PixTime';
 }
 function stopRing(snooze){
-  stopLoop(); $('ring').classList.remove('show'); document.title = 'Railway Time';
+  stopLoop(); $('ring').classList.remove('show'); document.title = 'PixTime';
   if (!ringing) return;
-  const { kind, id } = ringing; ringing = null;
+  const { kind, id, native } = ringing; ringing = null;
+  if (native) RG.silence().catch(() => {});
   if (NATIVE) clearDelivered();
   if (kind === 'alarm'){
     const a = alarms.find(x => x.id === id);
@@ -831,11 +833,11 @@ function tickTimers(){
         try { playOnce('Station bell'); } catch {}
         notify(sgm.label, `${Math.round(sgm.ms / 60000)} minutes`); toast(sgm.label.toUpperCase());
         saveTimers();
-      } else { ring('timer', t, "TIME'S UP", t.seq ? '🎉 Focus session done' : t.label || clockStr(t.total) + ' timer'); renderTimers(); }
+      } else if (ringerOk && rem > -30000) { /* the native engine rings it */ } else { ring('timer', t, "TIME'S UP", t.seq ? '🎉 Focus session done' : t.label || clockStr(t.total) + ' timer'); renderTimers(); }
     }
   });
   const running = timers.filter(t => t.end).sort((a, b) => a.end - b.end)[0];
-  if (!ringing) document.title = running && document.hidden ? '⏳ ' + clockStr(running.end - Date.now()) + ' — Railway Time' : 'Railway Time';
+  if (!ringing) document.title = running && document.hidden ? '⏳ ' + clockStr(running.end - Date.now()) + ' — PixTime' : 'PixTime';
 }
 
 /* ================= Stopwatch ================= */
@@ -922,6 +924,7 @@ function checkAlarms(){
       const late = now - a.next;
       // The Android app already rang it through the system; on the web it was genuinely missed.
       if (late > 10 * 60000){ if (!NATIVE) toast(`MISSED ALARM ${hm(a.h, a.m, false)}`); a.snoozeUntil = 0; a.snoozes = 0; if (!repeats(a)) a.on = false; changed = true; return; }
+      if (ringerOk && late < 30000) return; // the native engine rings it; the app mirrors it via onRinger()
       if (!ringing){ a.next = null; ring('alarm', a, hm(new Date().getHours(), new Date().getMinutes()), a.label || 'Alarm'); }
     }
   });
@@ -1011,12 +1014,17 @@ function renderSettings(){
   $('fmtTog').classList.toggle('on', h24); $('chimeTog').classList.toggle('on', settings.chime); $('glowTog').classList.toggle('on', settings.glow);
   $('nsStyle').value = settings.nsStyle; $('nsColor').value = settings.nsColor;
   $('appRow').innerHTML = NATIVE
-    ? `<span>📱 Android app<small>Alarms, timers and reminders ring through Android, even when Railway Time is closed.</small></span><span class="pill ${nativeWarn ? 'warn' : ''}">${nativeWarn ? 'NOTIFICATIONS OFF' : nativeExact === false ? 'NOT EXACT' : 'ACTIVE'}</span>`
-    : `<span>📱 Android app<small>Alarms that ring even when the app is closed or the phone is locked.</small></span><a class="pxbtn go" href="https://github.com/Hootywhooo86/railwaytime/releases/download/android-latest/RailwayTime.apk" target="_blank" rel="noopener">GET APK</a>`;
+    ? `<span>📱 Android app<small>Alarms, timers and reminders ring through Android, even when PixTime is closed.</small></span><span class="pill ${nativeWarn ? 'warn' : ''}">${nativeWarn ? 'NOTIFICATIONS OFF' : nativeExact === false ? 'NOT EXACT' : 'ACTIVE'}</span>`
+    : `<span>📱 Android app<small>Alarms that ring even when the app is closed or the phone is locked.</small></span><a class="pxbtn go" href="https://github.com/Hootywhooo86/railwaytime/releases/download/android-latest/PixTime.apk" target="_blank" rel="noopener">GET APK</a>`;
   $('dndRow').style.display = NATIVE && PS ? '' : 'none';
   if (NATIVE && PS){
     $('dndRow').innerHTML = `<span>🔕 Ring through Do Not Disturb<small>${dndOk ? 'Alarms and timers ring even when Do Not Disturb is on.' : 'Alarms already use the alarm volume. Allow this so they also break through every Do Not Disturb mode.'}</small></span>${dndOk ? '<span class="pill">ON</span>' : '<button class="pxbtn orange" id="dndBtn">ALLOW</button>'}`;
-    const b = $('dndBtn'); if (b) b.onclick = () => { toast('TURN ON RAILWAY TIME'); PS.openDndSettings().catch(() => {}); };
+    const b = $('dndBtn'); if (b) b.onclick = () => { toast('TURN ON PIXTIME'); PS.openDndSettings().catch(() => {}); };
+  }
+  $('fsRow').style.display = NATIVE && RG && !fsOk ? '' : 'none';
+  if (NATIVE && RG && !fsOk){
+    $('fsRow').innerHTML = `<span>📱 Show alarms on the lock screen<small>Lets a ringing alarm fill the screen with STOP and SNOOZE, like Google Clock. Without it you get a notification.</small></span><button class="pxbtn orange" id="fsBtn">ALLOW</button>`;
+    $('fsBtn').onclick = () => RG.openFullScreenSettings().catch(() => {});
   }
 }
 $('setBtn').onclick = () => { renderSettings(); $('setModal').classList.add('open'); };
@@ -1029,27 +1037,59 @@ $('nsColor').onchange = () => { settings.nsColor = $('nsColor').value; saveSetti
 
 /* ================= Android app (Capacitor) ================= */
 // In the Android build every alarm, timer, reminder and countdown is handed to Android's
-// alarm manager as an exact notification, so it rings even when Railway Time is closed.
+// alarm manager as an exact notification, so it rings even when PixTime is closed.
 // The web app keeps working exactly as before; this block is inert outside the app.
 var NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
 var LN = NATIVE ? Capacitor.registerPlugin('LocalNotifications') : null;
 var PS = NATIVE ? Capacitor.registerPlugin('PhoneSounds') : null;
+// Alarms and timers ring through PixTime's own engine: on a loop, on the alarm volume, until you stop or snooze them.
+var RG = NATIVE ? Capacitor.registerPlugin('Ringer') : null;
+var ringerOk = false, fsOk = true;
+// What happened while PixTime was closed (stopped/snoozed from the notification), then any ring still going.
+async function onRinger(){
+  if (!RG) return;
+  try {
+    const { events = [] } = await RG.drainEvents();
+    let changed = false;
+    events.forEach(ev => {
+      const it = ev.item || {};
+      if (it.kind === 'alarm'){
+        const a = alarms.find(z => z.id === it.aid); if (!a) return;
+        if (ringing?.kind === 'alarm' && ringing.id === a.id){ ringing = null; $('ring').classList.remove('show'); document.title = 'PixTime'; }
+        if (ev.action === 'snooze'){ a.snoozes = (a.snoozes || 0) + 1; a.snoozeUntil = ev.time + (it.snoozeMin || a.snooze) * 60000; }
+        else { a.snoozeUntil = 0; a.snoozes = 0; if (!repeats(a)) a.on = false; if (a.bedtime) logWake(); if (ev.action === 'timeout') toast(`MISSED ALARM ${hm(a.h, a.m, false)}`); }
+        changed = true;
+      } else if (it.kind === 'timer'){
+        if (ringing?.kind === 'timer' && ringing.id === it.tid){ ringing = null; $('ring').classList.remove('show'); document.title = 'PixTime'; }
+        timers = timers.filter(t => t.id !== it.tid); saveTimers();
+      }
+    });
+    if (changed) saveAlarms();
+    const { item } = await RG.current();
+    if (item && !ringing){
+      if (item.kind === 'alarm'){ const a = alarms.find(z => z.id === item.aid); if (a){ a.next = null; ring('alarm', a, hm(new Date().getHours(), new Date().getMinutes()), a.label || 'Alarm', true); } }
+      else if (item.kind === 'timer'){ const t = timers.find(z => z.id === item.tid); ring('timer', t || { id: item.tid }, "TIME'S UP", t?.label || item.body || 'Timer', true); }
+    } else if (!item && ringing?.native){ stopLoop(); $('ring').classList.remove('show'); ringing = null; document.title = 'PixTime'; }
+  } catch (e){ console.warn('ringer', e); }
+}
+async function checkFullScreen(){ if (!RG) return; try { const was = fsOk; fsOk = !!(await RG.fullScreenStatus()).granted; if (was !== fsOk) renderSettings(); } catch {} }
 var dndOk = false;
 async function checkDnd(){
   if (!PS) return;
   try { const was = dndOk; dndOk = !!(await PS.dndStatus()).granted; if (was !== dndOk){ renderSettings(); syncNative(); } } catch {}
 }
 // Coming back from Android Settings: pick up a newly granted Do Not Disturb access.
-document.addEventListener('visibilitychange', () => { if (!document.hidden && NATIVE) checkDnd(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && NATIVE){ checkDnd(); checkFullScreen(); onRinger(); } });
 var nativeReady = false, nativeWarn = '', nativeExact = null, syncTimer = null;
 function clearDelivered(){ LN?.removeAllDeliveredNotifications().catch(() => {}); setTimeout(() => LN?.removeAllDeliveredNotifications().catch(() => {}), 1500); }
 async function nativeInit(){
   try {
     let p = await LN.checkPermissions();
     if (p.display !== 'granted') p = await LN.requestPermissions();
-    if (p.display !== 'granted'){ nativeWarn = "Notifications are off, so alarms can't ring while Railway Time is closed. Turn them on in Android Settings → Apps → Railway Time → Notifications."; banners(); return; }
+    if (p.display !== 'granted'){ nativeWarn = "Notifications are off, so alarms can't ring while PixTime is closed. Turn them on in Android Settings → Apps → PixTime → Notifications."; banners(); return; }
     try { nativeExact = (await LN.checkExactNotificationSetting()).exact_alarm === 'granted'; } catch {}
-    await checkDnd();
+    await checkDnd(); await checkFullScreen();
+    if (RG){ RG.addListener('change', onRinger); ringerOk = true; await onRinger(); }
     await LN.createChannel({ id: 'reminders', name: 'Reminders', description: 'Wind-down reminders, focus cycles and countdowns', importance: 4, visibility: 1, sound: 'station_bell.wav', vibration: false });
     await LN.registerActionTypes({ types: [
       { id: 'ALARM', actions: [{ id: 'snooze', title: 'Snooze' }, { id: 'stop', title: 'Stop', destructive: true }] },
@@ -1060,32 +1100,21 @@ async function nativeInit(){
     LN.addListener('localNotificationReceived', n => onNative(n, 'received'));
     LN.addListener('localNotificationActionPerformed', e => onNative(e.notification, e.actionId));
     nativeReady = true; banners(); syncNative();
-  } catch (e){ console.warn('Railway Time native setup failed', e); }
+  } catch (e){ console.warn('PixTime native setup failed', e); }
 }
 function syncNative(){ if (!nativeReady) return; clearTimeout(syncTimer); syncTimer = setTimeout(() => doSync().catch(e => console.warn('sync', e)), 300); }
 async function doSync(){
-  // Alarm channels play on the alarm stream (and through DND when allowed); one per sound in use.
-  const chans = {};
-  const chan = async (o) => {
-    const uri = soundUri(o) || 'raw:classic_beep', key = SLUG[o?.sound] && !o?.soundUri ? SLUG[o.sound] : 'phone';
-    if (!chans[uri]) chans[uri] = (await PS.ensureChannel({ key, uri, name: o?.soundUri ? o.sound : (o?.sound || 'Classic beep') }).catch(() => ({ id: 'reminders' }))).id;
-    return chans[uri];
-  };
-  const alarmChan = {};
-  for (const a of alarms.filter(a => a.on)) alarmChan[a.id] = await chan(a);
-  const timerChan = await chan({ sound: 'Classic beep' });
-  await PS.prune({ keep: Object.values(chans) }).catch(() => {});
-  const now = Date.now(), list = [], icon = { smallIcon: 'ic_stat_alarm', iconColor: cssVar('--teal') || '#2dd4bf' };
+  const now = Date.now(), list = [], icon = { smallIcon: 'ic_stat_alarm', iconColor: cssVar('--teal') || '#2dd4bf' }, rings = [];
   let id = 1;
   const add = (n, at) => { if (at > now + 1000) list.push({ id: id++, ...icon, ...n, schedule: { at: new Date(at), allowWhileIdle: true } }); };
   // Alarms: the next three weeks of occurrences; re-planned every time the app opens or anything changes.
   alarms.filter(a => a.on).forEach(a => {
-    const chal = a.challenge && a.challenge !== 'none', canSnooze = !(a.maxSnooze >= 0) || (a.snoozes || 0) < a.maxSnooze;
-    const type = chal ? (canSnooze ? 'ALARM_SNOOZE' : undefined) : (canSnooze ? 'ALARM' : 'ALARM_STOP');
-    occurrences(a, now, now + 21 * 864e5, 40).forEach(at => add({
-      title: '⏰ ' + (a.label || 'Alarm'), body: hm(new Date(at).getHours(), new Date(at).getMinutes(), false) + (chal ? ' · open Railway Time to turn it off' : ''),
-      channelId: alarmChan[a.id], actionTypeId: type, ongoing: true, autoCancel: false, extra: { kind: 'alarm', aid: a.id, at }
-    }, at));
+    const chal = a.challenge && a.challenge !== 'none', left = a.maxSnooze >= 0 ? a.maxSnooze - (a.snoozes || 0) : 99;
+    occurrences(a, now, now + 21 * 864e5, 40).forEach(at => { if (at > now + 1000) rings.push({
+      key: `a${a.id}_${at}`, at, kind: 'alarm', aid: a.id, title: '⏰ ' + (a.label || 'Alarm'),
+      body: hm(new Date(at).getHours(), new Date(at).getMinutes(), false) + (chal ? ' · open PixTime to turn it off' : ''),
+      uri: soundUri(a) || 'raw:pixel_chime', vibe: a.vibe !== false, snoozeMin: a.snooze || 10, snoozesLeft: left, challenge: chal
+    }); });
   });
   timers.filter(t => t.end).forEach(t => {
     const segs = t.seq ? t.seq.slice(t.idx) : [{ label: t.label, ms: t.total }];
@@ -1093,8 +1122,8 @@ async function doSync(){
     segs.forEach((sg, i) => {
       if (i) at += sg.ms;
       const last = i === segs.length - 1, nxt = segs[i + 1];
-      add(last ? { title: "⏳ Time's up!", body: t.seq ? 'Focus session done 🎉' : (t.label || clockStr(t.total) + ' timer'), channelId: timerChan, actionTypeId: 'TIMER', ongoing: true, autoCancel: false, extra: { kind: 'timer', tid: t.id } }
-               : { title: nxt.label, body: Math.round(nxt.ms / 60000) + ' minutes', channelId: 'reminders', extra: { kind: 'seg', tid: t.id } }, at);
+      if (last){ if (at > now + 1000) rings.push({ key: `t${t.id}`, at, kind: 'timer', tid: t.id, title: "⏳ Time's up!", body: t.seq ? 'Focus session done 🎉' : (t.label || clockStr(t.total) + ' timer'), uri: 'raw:classic_beep', vibe: true, snoozeMin: 0, snoozesLeft: 0, challenge: false }); }
+      else add({ title: nxt.label, body: Math.round(nxt.ms / 60000) + ' minutes', channelId: 'reminders', extra: { kind: 'seg', tid: t.id } }, at);
     });
   });
   if (bed.on && bed.remind){
@@ -1105,6 +1134,9 @@ async function doSync(){
     }
   }
   cds.filter(c => !c.fired).forEach(c => add({ title: `${c.icon} ${c.name}`, body: "It's here!", channelId: 'reminders', extra: { kind: 'cd', cid: c.id } }, c.at));
+  rings.sort((x, y) => x.at - y.at);
+  if (RG) await RG.schedule({ items: rings.slice(0, 200) });
+  await PS?.prune({ keep: [] }).catch(() => {}); // old one-shot alarm channels from before the engine
   const pending = (await LN.getPending()).notifications || [];
   if (pending.length) await LN.cancel({ notifications: pending.map(n => ({ id: n.id })) });
   if (list.length) await LN.schedule({ notifications: list.slice(0, 450) });

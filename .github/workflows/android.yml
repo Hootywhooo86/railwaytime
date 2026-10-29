@@ -1,6 +1,6 @@
 name: Android APK
 
-# Builds the Railway Time Android app on every push that touches it. Pushes to main also
+# Builds the PixTime Android app on every push that touches it. Pushes to main also
 # publish the APK to the "android-latest" release, the link the app's Settings screen opens.
 on:
   push:
@@ -43,12 +43,15 @@ jobs:
         run: ./gradlew assembleDebug --no-daemon
 
       - name: Name the APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk RailwayTime.apk
+        # PixTime.apk is the name now; RailwayTime.apk is kept as a copy so old links still get the latest build.
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk PixTime.apk
+          cp PixTime.apk RailwayTime.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: RailwayTime-apk
-          path: RailwayTime.apk
+          name: PixTime-apk
+          path: PixTime.apk
 
       - name: Publish to the android-latest release
         if: github.ref == 'refs/heads/main'
@@ -56,6 +59,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view android-latest >/dev/null 2>&1 || gh release create android-latest \
-            --title "Railway Time for Android" --latest \
-            --notes "Download **RailwayTime.apk** on your Android phone and open it to install (allow installs from your browser when asked). Alarms ring even when the app is closed. This release is rebuilt automatically from main."
-          gh release upload android-latest RailwayTime.apk --clobber
+            --title "PixTime for Android" --latest \
+            --notes "Download **PixTime.apk** on your Android phone and open it to install (allow installs from your browser when asked). Alarms ring even when the app is closed. This release is rebuilt automatically from main."
+          gh release upload android-latest PixTime.apk RailwayTime.apk --clobber
+          gh release edit android-latest --title "PixTime for Android" --notes "Download **PixTime.apk** on your Android phone and open it to install (allow installs from your browser when asked). Alarms ring on a loop until you stop them, even when the app is closed. RailwayTime.apk is the same app under its old name. This release is rebuilt automatically from main."
