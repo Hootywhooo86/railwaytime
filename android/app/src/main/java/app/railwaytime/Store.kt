@@ -88,6 +88,17 @@ class Store(context: Context) {
         get() = runCatching { NapSound.valueOf(prefs.getString("nap_sound", null)!!) }.getOrDefault(NapSound.HORN)
         set(v) = prefs.edit().putString("nap_sound", v.name).apply()
 
+    /** Colours: a preset id, plus your own accents (0 = the preset's). */
+    var themeId: String?
+        get() = prefs.getString("theme_id", null)
+        set(v) = prefs.edit().putString("theme_id", v).apply()
+    var themeAccent: Int
+        get() = prefs.getInt("theme_accent", 0)
+        set(v) = prefs.edit().putInt("theme_accent", v).apply()
+    var themeAccent2: Int
+        get() = prefs.getInt("theme_accent2", 0)
+        set(v) = prefs.edit().putInt("theme_accent2", v).apply()
+
     /** The device certificate you picked for CN, reused by background refreshes. */
     var certAlias: String?
         get() = prefs.getString("cert_alias", null)

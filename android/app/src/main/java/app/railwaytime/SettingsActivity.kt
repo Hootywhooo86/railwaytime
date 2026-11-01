@@ -2,11 +2,15 @@ package app.railwaytime
 
 import android.app.Activity
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.EditText
 import android.widget.RadioButton
 import android.widget.Toast
 import app.railwaytime.core.AppSettings
+import app.railwaytime.core.Themes
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -43,6 +47,13 @@ class SettingsActivity : Activity() {
         ivrm.setText(s.ivrmUrl)
         sharepoint.setText(s.sharepointUrl)
 
+        findViewById<Button>(R.id.theme_reset).setOnClickListener {
+            store.themeAccent = 0
+            store.themeAccent2 = 0
+            themeChanged()
+        }
+        buildColours()
+
         findViewById<Button>(R.id.btn_save).setOnClickListener {
             val zoneText = zone.text.toString().trim()
             if (zoneText.isNotEmpty() && runCatching { ZoneId.of(zoneText) }.isFailure) {
@@ -72,5 +83,72 @@ class SettingsActivity : Activity() {
             Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
             finish()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Themer.apply(this)
+    }
+
+    /** Colours apply straight away: here, in the app and on the widget. */
+    private fun themeChanged() {
+        buildColours()
+        Themer.apply(this)
+        Widget.updateAll(this)
+    }
+
+    private fun buildColours() {
+        val store = Store(this)
+        val current = Themer.current(this)
+        val dp = resources.displayMetrics.density
+
+        val presets = findViewById<LinearLayout>(R.id.theme_presets)
+        presets.removeAllViews()
+        Themes.PRESETS.forEach { t ->
+            val selected = t.id == (store.themeId ?: Themes.DEFAULT.id)
+            presets.addView(TextView(this).apply {
+                text = t.name
+                setTextColor(t.accent)
+                textSize = 13f
+                setTypeface(typeface, android.graphics.Typeface.BOLD)
+                setPadding((14 * dp).toInt(), (12 * dp).toInt(), (14 * dp).toInt(), (12 * dp).toInt())
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    setColor(t.bg)
+                    cornerRadius = 10 * dp
+                    setStroke(((if (selected) 3 else 1) * dp).toInt(), if (selected) t.accent2 else t.accent)
+                }
+                setTag(R.id.theme_orig_text, 0) // keep its own colours when the screen is themed
+                setOnClickListener {
+                    store.themeId = t.id
+                    store.themeAccent = 0
+                    store.themeAccent2 = 0
+                    themeChanged()
+                }
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply { marginEnd = (8 * dp).toInt() }
+            })
+        }
+
+        fun swatches(row: Int, chosen: Int, pick: (Int) -> Unit) {
+            val box = findViewById<LinearLayout>(row)
+            box.removeAllViews()
+            Themes.SWATCHES.forEach { c ->
+                box.addView(View(this).apply {
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(c)
+                        cornerRadius = 6 * dp
+                        if (c == chosen) setStroke((3 * dp).toInt(), current.ink)
+                    }
+                    setTag(R.id.theme_orig_bg, 0)
+                    contentDescription = "Colour #%06X".format(c and 0xFFFFFF)
+                    setOnClickListener { pick(c); themeChanged() }
+                    layoutParams = LinearLayout.LayoutParams((40 * dp).toInt(), (40 * dp).toInt())
+                        .apply { marginEnd = (8 * dp).toInt() }
+                })
+            }
+        }
+        swatches(R.id.theme_accent, current.accent) { store.themeAccent = it }
+        swatches(R.id.theme_accent2, current.accent2) { store.themeAccent2 = it }
     }
 }

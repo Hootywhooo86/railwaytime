@@ -33,6 +33,7 @@ class NapRingActivity : Activity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_nap_ring)
+        Themer.apply(this)
 
         val settings = Store(this).settings
         findViewById<PixelClockView>(R.id.ring_clock).apply {

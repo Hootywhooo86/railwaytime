@@ -11,7 +11,31 @@
         android:orientation="vertical"
         android:padding="16dp">
 
-        <TextView style="@style/Heading" android:layout_marginTop="4dp" android:text="CLOCKS" />
+        <TextView style="@style/Heading" android:layout_marginTop="4dp" android:text="COLOURS" />
+
+        <TextView style="@style/Label" android:layout_marginTop="2dp" android:text="Theme" />
+        <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none">
+            <LinearLayout android:id="@+id/theme_presets" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="8dp" />
+        </HorizontalScrollView>
+
+        <TextView style="@style/Label" android:text="Main accent (clock, likely train, buttons)" />
+        <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none">
+            <LinearLayout android:id="@+id/theme_accent" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="8dp" />
+        </HorizontalScrollView>
+
+        <TextView style="@style/Label" android:text="Second accent (labels, location)" />
+        <HorizontalScrollView android:layout_width="match_parent" android:layout_height="wrap_content" android:scrollbars="none">
+            <LinearLayout android:id="@+id/theme_accent2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="horizontal" android:paddingTop="8dp" />
+        </HorizontalScrollView>
+
+        <Button
+            android:id="@+id/theme_reset"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="Use the theme's own accents" />
+
+        <TextView style="@style/Heading" android:text="CLOCKS" />
 
         <TextView style="@style/Label" android:text="Local time zone (blank = phone's)" />
         <EditText android:id="@+id/set_zone" style="@style/Field" />

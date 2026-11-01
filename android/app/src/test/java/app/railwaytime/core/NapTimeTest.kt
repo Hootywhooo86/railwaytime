@@ -24,3 +24,20 @@ class NapTimeTest {
         assertEquals(LocalDateTime.of(2026, 11, 2, 8, 0), RailClock.localNow(s, at))
     }
 }
+
+class ThemeTest {
+    @Test fun defaultIs128bit() {
+        val p = Themes.resolve(null)
+        assertEquals("128bit", p.id)
+        assertEquals(0xFFFF9F1C.toInt(), p.accent)
+        assertEquals(false, p.isLight)
+    }
+
+    @Test fun ownAccentsOnAPreset() {
+        val p = Themes.resolve("night", accent = 0xFF4ADE80.toInt())
+        assertEquals(0xFF4ADE80.toInt(), p.accent)
+        assertEquals(Themes.PRESETS.first { it.id == "night" }.accent2, p.accent2)
+    }
+
+    @Test fun daylightIsLight() = assertEquals(true, Themes.resolve("day").isLight)
+}

@@ -51,6 +51,7 @@ class IvrmActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_ivrm)
+        Themer.apply(this)
         val store = Store(this)
         val settings = store.settings
         frame = findViewById(R.id.web_frame)

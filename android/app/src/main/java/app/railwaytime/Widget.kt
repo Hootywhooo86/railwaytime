@@ -6,7 +6,6 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.view.View
 import android.widget.RemoteViews
 import app.railwaytime.core.DayTime
@@ -115,6 +114,10 @@ class RailWidget : AppWidgetProvider() {
         RefreshScheduler.ensure(context)
     }
 
+    override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, newOptions: android.os.Bundle) {
+        Widget.update(context, manager, id)
+    }
+
     override fun onEnabled(context: Context) {
         RefreshScheduler.refreshNow(context)
         RefreshScheduler.scheduleNext(context)
@@ -136,22 +139,41 @@ class RailWidget : AppWidgetProvider() {
 object Widget {
     const val ACTION_TOGGLE_DUTY = "app.railwaytime.TOGGLE_DUTY"
     const val ACTION_REFRESH = "app.railwaytime.REFRESH_NOW"
-    private const val ORANGE = 0xFFFF9F1C.toInt()
-    private const val PINK = 0xFFFF5D8F.toInt()
-    private const val MUTED = 0xFF9A97B8.toInt()
 
     fun updateAll(context: Context) {
         val manager = AppWidgetManager.getInstance(context)
         val ids = manager.getAppWidgetIds(ComponentName(context, RailWidget::class.java))
-        if (ids.isEmpty()) return
-        val views = render(context)
-        ids.forEach { manager.updateAppWidget(it, views) }
+        ids.forEach { update(context, manager, it) }
     }
 
-    private fun render(context: Context): RemoteViews {
+    /** One widget: rendered per widget so its background card matches its size. */
+    fun update(context: Context, manager: AppWidgetManager, id: Int) {
+        manager.updateAppWidget(id, render(context, manager, id))
+    }
+
+    private fun render(context: Context, manager: AppWidgetManager, widgetId: Int): RemoteViews {
         val store = Store(context)
         val settings = store.settings
+        val p = Themer.current(context)
         val v = RemoteViews(context.packageName, R.layout.widget)
+
+        // Background card in your colours, at this widget's size (portrait: min width × max height).
+        val opts = manager.getAppWidgetOptions(widgetId)
+        val density = context.resources.displayMetrics.density
+        val wDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH).takeIf { it > 0 } ?: 250
+        val hDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).takeIf { it > 0 } ?: 180
+        v.setImageViewBitmap(R.id.widget_bg, Themer.widgetBackground(p, (wDp * density).toInt(), (hDp * density).toInt(), density))
+
+        // Text colours.
+        listOf(R.id.rail_label, R.id.lbl_pos, R.id.lbl_ahead, R.id.lbl_before, R.id.lbl_rest, R.id.lbl_next, R.id.lbl_train)
+            .forEach { v.setTextColor(it, p.accent2) }
+        listOf(R.id.local_clock, R.id.v_position, R.id.v_ahead, R.id.v_before, R.id.v_rest, R.id.v_next, R.id.duty_button, R.id.refresh_button)
+            .forEach { v.setTextColor(it, p.ink) }
+        listOf(R.id.local_label, R.id.on_duty_note, R.id.sub_pos, R.id.sub_before, R.id.v_ahead_sub, R.id.v_rest_sub, R.id.v_next_sub, R.id.v_train_sub)
+            .forEach { v.setTextColor(it, p.muted) }
+        listOf(R.id.v_train_prev, R.id.v_train_next1, R.id.v_train_next2).forEach { v.setTextColor(it, Themer.withAlpha(p.ink, 0xB3)) }
+        v.setTextColor(R.id.rail_clock, p.accent)
+        listOf(R.id.div1, R.id.div2, R.id.div3).forEach { v.setInt(it, "setBackgroundColor", Themer.withAlpha(p.ink, 0x26)) }
 
         v.setString(R.id.rail_clock, "setTimeZone", RailClock.railZoneId(settings, Instant.now()))
         v.setString(R.id.local_clock, "setTimeZone", settings.homeZone.id)
@@ -171,7 +193,7 @@ object Widget {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
         v.setOnClickPendingIntent(R.id.duty_button, toggle)
-        // Tap "Updated … ⟳" to refresh now.
+        // Tap ⟳ (or "Updated …") to refresh now.
         val refresh = PendingIntent.getBroadcast(
             context, 2, Intent(context, RailWidget::class.java).setAction(ACTION_REFRESH),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
@@ -204,7 +226,7 @@ object Widget {
         v.setTextViewText(R.id.v_train, s.train)
         v.setTextViewText(R.id.v_train_sub, s.trainSub)
         v.setTextViewText(R.id.v_location, s.location.orEmpty())
-        v.setTextColor(R.id.v_location, if (s.location == "WORKING") ORANGE else 0xFF2DD4BF.toInt())
+        v.setTextColor(R.id.v_location, if (s.location == "WORKING") p.accent else p.accent2)
         fun small(id: Int, text: String?) {
             v.setTextViewText(id, text.orEmpty())
             v.setViewVisibility(id, if (text == null) View.GONE else View.VISIBLE)
@@ -212,9 +234,9 @@ object Widget {
         small(R.id.v_train_prev, s.trainBefore)
         small(R.id.v_train_next1, s.trainsAfter.getOrNull(0))
         small(R.id.v_train_next2, s.trainsAfter.getOrNull(1))
-        v.setTextColor(R.id.v_train, if (s.prediction?.myTrain != null) ORANGE else Color.WHITE)
+        v.setTextColor(R.id.v_train, if (s.prediction?.myTrain != null) p.accent else p.ink)
         v.setTextViewText(R.id.line_updated, s.updated)
-        v.setTextColor(R.id.line_updated, if (s.needsAttention) PINK else MUTED)
+        v.setTextColor(R.id.line_updated, if (s.needsAttention) p.alert else p.muted)
         return v
     }
 

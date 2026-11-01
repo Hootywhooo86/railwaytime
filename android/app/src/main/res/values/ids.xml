@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Themer keeps each view's original 128bit colour here so themes can be switched again. -->
+    <item name="theme_orig_text" type="id" />
+    <item name="theme_orig_bg" type="id" />
+</resources>

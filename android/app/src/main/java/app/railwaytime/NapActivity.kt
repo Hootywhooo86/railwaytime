@@ -73,6 +73,7 @@ class NapActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        Themer.apply(this)
         handler.post(tick)
     }
 

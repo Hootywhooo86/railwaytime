@@ -75,6 +75,7 @@
         <Button
             android:id="@+id/btn_nap"
             style="@style/PixelButtonWide"
+            android:tag="accent"
             android:layout_marginTop="12dp"
             android:background="@drawable/pixel_button"
             android:textColor="@color/bg"

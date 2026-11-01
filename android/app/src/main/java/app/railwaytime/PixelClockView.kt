@@ -18,18 +18,19 @@ class PixelClockView @JvmOverloads constructor(context: Context, attrs: Attribut
     /** What the clock shows, e.g. "21:42". Read every frame. */
     var timeText: () -> String = { "00:00" }
     var ringing = false
+    var palette: app.railwaytime.core.Palette = app.railwaytime.core.Themes.DEFAULT
 
     private val paint = Paint()
 
-    private val bg = 0xFF0B0B16.toInt()
-    private val panel = 0xFF141428.toInt()
-    private val orange = 0xFFFF9F1C.toInt()
-    private val pink = 0xFFFF5D8F.toInt()
-    private val teal = 0xFF2DD4BF.toInt()
+    private val bg get() = palette.bg
+    private val panel get() = palette.panel
+    private val orange get() = palette.accent
+    private val pink get() = palette.alert
+    private val teal get() = palette.accent2
     private val rail = 0xFF5A5A7A.toInt()
     private val tie = 0xFF6B4A2A.toInt()
     private val light = 0xFFFFE066.toInt()
-    private val ink = 0xFFF4F1FF.toInt()
+    private val ink get() = palette.ink
     private val smoke = 0x99B8B5D0.toInt()
 
     /** Track loop, one cell inset from the 2-cell border, clockwise. */
