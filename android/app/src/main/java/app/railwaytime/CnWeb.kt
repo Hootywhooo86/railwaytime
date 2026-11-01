@@ -112,19 +112,26 @@ object CnWeb {
     }
 
     /**
-     * Finds SharePoint's "Mobile Crew Inquiry" link. Returns {"href": …} when it's a plain link,
-     * {"clicked": true} when it had to be clicked (it opens a new window), or {} if not drawn yet.
+     * Finds SharePoint's link to IVRM. A link that goes to ivrm.cn.ca wins outright. Otherwise an
+     * element reading "Mobile Crew" — but never one that links somewhere else (SharePoint also has
+     * a "Mobile Crew" entry going to the SAP portal, portal.cn.ca, which answers Bad Gateway).
+     * Returns {"href": …}, {"clicked": true} when it had to be clicked, or {} if not drawn yet.
      */
     const val MOBILE_CREW_JS = """
 (function(){
+  var as=document.querySelectorAll('a[href]');
+  for(var i=0;i<as.length;i++){ if(/ivrm\.cn\.ca/i.test(as[i].href)) return JSON.stringify({href:as[i].href}); }
   var re=/mobile\s*crew/i;
   var els=document.querySelectorAll('a,button,[role=link],[role=button],[aria-label],[title]');
-  for(var i=0;i<els.length;i++){
-    var e=els[i];
+  for(var j=0;j<els.length;j++){
+    var e=els[j];
     var t=(e.getAttribute('aria-label')||'')+' '+(e.getAttribute('title')||'')+' '+(e.textContent||'');
     if(!re.test(t))continue;
     var a=e.closest('a');
-    if(a&&a.href&&/^https?:/.test(a.href)&&a.target!=='_blank')return JSON.stringify({href:a.href});
+    if(a&&a.href&&/^https?:/.test(a.href)){
+      if(!/ivrm/i.test(a.href))continue;
+      return JSON.stringify({href:a.href});
+    }
     e.click();
     return JSON.stringify({clicked:true});
   }

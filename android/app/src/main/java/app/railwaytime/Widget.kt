@@ -59,7 +59,7 @@ data class Summary(
             }
             val stale = store.fetchedAt > 0 && System.currentTimeMillis() - store.fetchedAt > STALE_MS
             val updated = if (store.refreshing) "Refreshing…" else when (store.status) {
-                Store.Status.SIGN_IN -> "Signed out of CN · tap to sign in"
+                Store.Status.SIGN_IN -> "IVRM visit expired · tap ⟳"
                 Store.Status.BLOCKED -> "CN blocking app access · update via Chrome"
                 Store.Status.ERROR -> "Couldn't refresh · last ${updatedAt ?: "never"}"
                 else -> if (updatedAt == null) "Not loaded yet" else "Updated $updatedAt" + if (stale) " · old" else ""

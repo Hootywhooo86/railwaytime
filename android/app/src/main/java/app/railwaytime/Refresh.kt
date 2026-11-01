@@ -235,7 +235,7 @@ object Refresher {
         Widget.updateAll(context)
         store.log("refresh ($via): ${CnWeb.safeUrl(store.boardUrl ?: store.settings.sharepointUrl)}")
         try {
-            when (val r = IvrmFetcher.fetch(context, store.boardUrl, store.settings)) {
+            when (val r = IvrmFetcher.fetch(context, store.boardUrl, store.settings, manual)) {
                 is IvrmFetcher.Result.Board -> {
                     store.saveBoard(r.text, r.url)
                     Duty.checkWorking(context)
@@ -243,7 +243,7 @@ object Refresher {
                 }
                 IvrmFetcher.Result.SignIn -> {
                     store.setStatus(Store.Status.SIGN_IN)
-                    store.log("refresh: CN sign-in page stayed up — signed out")
+                    store.log("refresh: IVRM visit expired or signed out — tap ⟳ (or update from Chrome)")
                 }
                 is IvrmFetcher.Result.Failed -> {
                     store.setStatus(Store.Status.ERROR, r.reason)
@@ -397,13 +397,22 @@ object IvrmFetcher {
      * 1. The saved IVRM page (fast, but IVRM's visit can expire).
      * 2. Otherwise the way you'd do it: SharePoint → Mobile Crew → read the board.
      */
-    suspend fun fetch(context: Context, boardUrl: String?, settings: AppSettings): Result {
+    /**
+     * Timed refreshes only read the IVRM page itself (one page, nothing else). Going through
+     * SharePoint → Mobile Crew to start a fresh IVRM visit happens only when you tap refresh.
+     */
+    suspend fun fetch(context: Context, boardUrl: String?, settings: AppSettings, manual: Boolean): Result {
         val store = Store(context)
         if (boardUrl != null) {
             quickFetch(context, boardUrl)?.let { return it }
-            val direct = browse(context, boardUrl, followMobileCrew = false, timeoutMs = 30_000)
+            // Short wait: when the saved IVRM visit has expired the page just hangs.
+            val direct = browse(context, boardUrl, followMobileCrew = false, timeoutMs = 15_000)
             if (direct !is Result.Failed && direct != Result.Blocked) return direct
             val why = if (direct is Result.Failed) direct.reason else "IVRM answered 403"
+            if (!manual) {
+                store.log("refresh: IVRM page didn't show the board ($why) — tap ⟳ to start a fresh visit")
+                return Result.SignIn
+            }
             store.log("refresh: saved IVRM page didn't show the board ($why); going via SharePoint")
         }
         return browse(context, settings.sharepointUrl, followMobileCrew = true, timeoutMs = 75_000)
