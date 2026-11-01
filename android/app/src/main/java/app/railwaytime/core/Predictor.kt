@@ -59,7 +59,7 @@ object Predictor {
     fun predict(snapshot: BoardSnapshot, now: LocalDateTime, callLeadMinutes: Long = 120): Prediction {
         val myPos = snapshot.cats.boardPosition
         val ahead = snapshot.board.filter { myPos == null || it.pos < myPos }
-        val myRest = snapshot.cats.restUntil
+        val myRest = snapshot.cats.offUntil
 
         val queue = ahead.map { e ->
             val freeAt = when {

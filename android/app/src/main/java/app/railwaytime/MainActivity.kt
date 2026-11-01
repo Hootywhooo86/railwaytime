@@ -116,15 +116,10 @@ class MainActivity : Activity() {
         findViewById<TextView>(R.id.summary).text = if (!s.hasBoard) "No board yet" else listOf(
             "Position ${s.position} · ${s.ahead} ahead (${s.aheadSub})" + (s.location?.let { " · $it" } ?: ""),
             "${s.beforeYou} likely called before you",
-            "Your rest: ${s.rest} (${s.restSub})",
+            "Your rest: ${s.rest} (${s.restSub})" + (s.status?.let { " · $it" } ?: ""),
             "Next off rest: ${s.next} (${s.nextSub})",
         ).joinToString("\n")
-        findViewById<TextView>(R.id.train).text = listOfNotNull(
-            s.trainBefore?.let { "   $it" },
-            s.train,
-            s.trainSub,
-            *s.trainsAfter.map { "   $it" }.toTypedArray(),
-        ).joinToString("\n")
+        findViewById<TextView>(R.id.train).text = trainTable(s)
 
         val p = s.prediction
         val snapshot = store.snapshot()
@@ -162,6 +157,38 @@ class MainActivity : Activity() {
             Importer.toast(this, ok)
             render()
         }
+    }
+
+    /**
+     * The likely train and its neighbours as one lined-up table:
+     *   U76151   Plan 15:01   Call 13:01
+     * ▶ E21751   Plan 15:30   Call 13:30
+     *            today · in 4h20
+     */
+    private fun trainTable(s: Summary): CharSequence {
+        val p = s.prediction ?: return s.train
+        val mine = p.myTrain ?: return "${s.train}\n${s.trainSub}"
+        val palette = Themer.current(this)
+        val lead = Store(this).settings.callLeadMin.toLong()
+        val out = android.text.SpannableStringBuilder()
+        fun row(t: app.railwaytime.core.PoolTrain, isMine: Boolean) {
+            val start = out.length
+            out.append("%s %-8s %-4s %s   Call %s\n".format(
+                if (isMine) "▶" else " ", t.symbol, t.statusWord,
+                DayTime.clock(t.planned), DayTime.clock(t.planned.minusMinutes(lead)),
+            ))
+            val color = if (isMine) palette.accent else palette.muted
+            out.setSpan(android.text.style.ForegroundColorSpan(color), start, out.length, 0)
+            if (isMine) out.setSpan(android.text.style.StyleSpan(android.graphics.Typeface.BOLD), start, out.length, 0)
+        }
+        p.trainBefore?.let { row(it, false) }
+        row(mine.train, true)
+        val subStart = out.length
+        val railNow = app.railwaytime.core.RailClock.boardNow(Store(this).settings, java.time.Instant.now())
+        out.append("  %-8s %s · call %s\n".format("", DayTime.dayWord(railNow, mine.train.planned), DayTime.until(railNow, mine.orderAt)))
+        out.setSpan(android.text.style.ForegroundColorSpan(palette.ink), subStart, out.length, 0)
+        p.trainsAfter.forEach { row(it, false) }
+        return out.trimEnd('\n')
     }
 
     /**

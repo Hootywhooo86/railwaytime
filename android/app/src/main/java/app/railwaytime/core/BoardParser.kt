@@ -7,8 +7,20 @@ import java.time.Month
 object BoardParser {
     private val LABELS = listOf(
         "Name", "Terminal", "CATS Status", "Rest until",
-        "Current Assignment", "Assignment Location", "Board Position",
+        "Current Assignment", "Assignment Location", "Board Position", "Expected Return",
     )
+
+    /** "Expected Return 261102 05:59 M": year, month, day, time (the letter is the time zone). */
+    private val EXPECTED = Regex("""^(\d{2})(\d{2})(\d{2})\s+(\d{1,2}):?(\d{2})""")
+
+    private fun expectedReturn(v: String?, ref: LocalDate): java.time.LocalDateTime? {
+        val s = v?.trim() ?: return null
+        EXPECTED.find(s)?.let { m ->
+            val (yy, mm, dd, h, min) = m.destructured
+            return runCatching { java.time.LocalDateTime.of(2000 + yy.toInt(), mm.toInt(), dd.toInt(), h.toInt(), min.toInt()) }.getOrNull()
+        }
+        return DayTime.parse(s, ref)
+    }
     private val PAGE_DATE = Regex(
         """(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),\s*(\d{4})""",
         RegexOption.IGNORE_CASE,
@@ -110,6 +122,7 @@ object BoardParser {
             assignment = values["Current Assignment"],
             location = values["Assignment Location"],
             boardPosition = values["Board Position"]?.trim()?.toIntOrNull(),
+            expectedReturn = expectedReturn(values["Expected Return"], ref),
         )
     }
 

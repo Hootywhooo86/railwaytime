@@ -108,9 +108,9 @@
             <TextView style="@style/Heading" android:text="YOUR LIKELY TRAIN (ESTIMATE)" />
             <TextView
                 android:id="@+id/train"
-                style="@style/Card"
-                android:textColor="@color/orange"
-                android:textStyle="bold" />
+                style="@style/Mono"
+                android:lineSpacingExtra="5dp"
+                android:textSize="13sp" />
 
             <TextView style="@style/Heading" android:text="TRAIN ORDER" />
             <TextView android:id="@+id/order" style="@style/Mono" />

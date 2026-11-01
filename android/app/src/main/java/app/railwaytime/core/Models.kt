@@ -11,7 +11,15 @@ data class CatsInfo(
     val assignment: String? = null,
     val location: String? = null,
     val boardPosition: Int? = null,
-)
+    /** On an excused absence (or similar) CATS shows "Expected Return" instead of "Rest until". */
+    val expectedReturn: LocalDateTime? = null,
+) {
+    /** When you're free again: the later of Rest until and Expected Return. */
+    val offUntil: LocalDateTime? get() = listOfNotNull(restUntil, expectedReturn).maxOrNull()
+
+    /** The CATS status when it's something other than plain AVAILABLE (e.g. EXCUSED ABSENCE). */
+    val specialStatus: String? get() = status?.trim()?.takeIf { it.isNotEmpty() && !it.equals("AVAILABLE", ignoreCase = true) }
+}
 
 /** One row of "Additional Board Information": Pos / Init / Rest / Off St / Return. */
 data class BoardEntry(
@@ -35,7 +43,7 @@ data class PoolTrain(
     val status: String,
     val planned: LocalDateTime,
 ) {
-    val label: String get() = "$symbol $originDay"
+    val label: String get() = "%s %02d".format(symbol, originDay)
 
     /** IVRM's word for the time, shortened to fit: "Plan" (Planned) or "Ord" (Ordered, time is set). */
     val statusWord: String get() = when (status.lowercase()) {

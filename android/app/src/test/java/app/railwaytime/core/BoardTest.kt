@@ -415,3 +415,35 @@ class ChromeShortcutOutputTest {
         assertEquals(listOf("A41651", "G81051", "U71052", "G83452"), s.trains.map { it.symbol })
     }
 }
+
+/** On an excused absence CATS shows "Expected Return 261102 05:59 M" instead of "Rest until". */
+class ExcusedAbsenceTest {
+    private val text = """
+        Sunday, November 1, 2026 11:10 AM ET
+        CATS Status	EXCUSED ABSENCE
+        Expected Return	261102 05:59 M
+        Assignment Location	Home
+        Board Position	05
+        Additional Board Information
+        Pos	Init	Rest	Off St	Return
+        01	DF		A0
+        Pool Lineup
+        E21751 01	Planned 01 15:30
+        G81541 31	Planned 01 17:15
+        Z11131 30	Planned 02 06:30
+        Z22222 02	Planned 02 09:00
+    """.trimIndent()
+
+    @Test fun expectedReturnIsWhenYoureBack() {
+        val s = BoardParser.parse(text, LocalDate.of(2026, 11, 1))
+        assertEquals(LocalDateTime.of(2026, 11, 2, 5, 59), s.cats.expectedReturn)
+        assertEquals(LocalDateTime.of(2026, 11, 2, 5, 59), s.cats.offUntil)
+        assertEquals("EXCUSED ABSENCE", s.cats.specialStatus)
+        assertEquals("E21751 01", s.trains.first().label)
+
+        // DF takes E21751; G81541 and Z11131 (call 04:30) come before you're back at 05:59.
+        val p = Predictor.predict(s, LocalDateTime.of(2026, 11, 1, 9, 10), 120)
+        assertEquals(LocalDateTime.of(2026, 11, 2, 5, 59), p.myRestUntil)
+        assertEquals("Z22222", p.myTrain!!.train.symbol)
+    }
+}

@@ -30,7 +30,9 @@ data class Summary(
     val nextSub: String = "",
     val train: String = "No board yet",
     val trainSub: String = "Tap to sign in to IVRM",
-    /** CATS assignment location ("HOME", "AWAY"), or "WORKING" when CATS says so. */
+    /** CATS status when it isn't plain AVAILABLE, e.g. "EXCUSED ABSENCE". */
+    val status: String? = null,
+    /** CATS assignment location ("HOME", "AWAY"), "WORKING", or a special status like EXCUSED ABSENCE. */
     val location: String? = null,
     /** Small lines around the likely train: one before, two after. */
     val trainBefore: String? = null,
@@ -89,10 +91,15 @@ data class Summary(
                 beforeYou = if (mine != null) p.goBeforeYou.toString() else "${p.goBeforeYou}+",
                 rest = rest?.let { DayTime.clock(it) } ?: "Rested",
                 restSub = rest?.let { whenSub(it) } ?: "ready to go",
+                status = store.snapshot()?.cats?.specialStatus,
                 next = p.nextBackAt?.let { "${next!!.init} · ${DayTime.clock(it)}" } ?: "—",
                 nextSub = p.nextBackAt?.let { whenSub(it) } ?: "nobody ahead resting",
                 location = store.snapshot()?.cats?.let { c ->
-                    if (Duty.isWorking(c)) "WORKING" else c.location?.uppercase()
+                    when {
+                        Duty.isWorking(c) -> "WORKING"
+                        c.specialStatus != null -> c.specialStatus!!.uppercase()
+                        else -> c.location?.uppercase()
+                    }
                 },
                 train = mine?.let { "${it.train.symbol} · ${it.train.statusWord} ${DayTime.clock(it.train.planned)}" } ?: "Past the lineup",
                 trainSub = mine?.let {
