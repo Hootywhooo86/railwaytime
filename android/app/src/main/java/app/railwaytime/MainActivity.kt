@@ -14,6 +14,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.TextClock
 import android.widget.TextView
+import android.widget.Toast
 import app.railwaytime.core.DayTime
 import app.railwaytime.core.RailClock
 import java.time.Instant
@@ -31,7 +32,20 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         findViewById<Button>(R.id.btn_duty).setOnClickListener { Duty.toggle(this); render() }
-        findViewById<Button>(R.id.btn_signin).setOnClickListener { startActivity(Intent(this, IvrmActivity::class.java)) }
+        findViewById<Button>(R.id.btn_signin).setOnClickListener {
+            // CN refusing the in-app browser? Go the quick way instead of a slow, failing sign-in.
+            if (Store(this).status == Store.Status.BLOCKED) {
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("CN is blocking the in-app browser")
+                    .setMessage("IVRM refused this app's browser last time (403). Updating from Chrome with the ${ChromeShortcut.NAME} shortcut is quicker.")
+                    .setPositiveButton("Update from Chrome") { _, _ -> updateFromChrome() }
+                    .setNeutralButton("Try in-app anyway") { _, _ -> startActivity(Intent(this, IvrmActivity::class.java)) }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            } else {
+                startActivity(Intent(this, IvrmActivity::class.java))
+            }
+        }
         findViewById<Button>(R.id.btn_settings).setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
         findViewById<Button>(R.id.btn_share).setOnClickListener { shareDebug() }
         findViewById<Button>(R.id.btn_chrome_update).setOnClickListener { updateFromChrome() }
@@ -158,17 +172,60 @@ class MainActivity : Activity() {
         android.app.AlertDialog.Builder(this)
             .setTitle("Update from Chrome")
             .setMessage(
-                "1. In Chrome, open CATS Information, Additional Board Information and Pool Lineup (tap each one).\n\n" +
-                    "2. Long-press any text → Select all → Share → When Do I Work board.\n\n" +
-                    "Or take a screenshot with those open → Share → When Do I Work board.",
+                "Quickest: on the IVRM page in Chrome, tap the address bar, type ${ChromeShortcut.NAME} and tap the " +
+                    "${ChromeShortcut.NAME} bookmark. The board comes straight here (sections don't need to be open).\n\n" +
+                    "No shortcut yet? Tap SET UP SHORTCUT (once).\n\n" +
+                    "Or: Select all → Copy in Chrome and come back here — it's picked up by itself. " +
+                    "A screenshot → Share → When Do I Work board works too.",
             )
-            .setPositiveButton("Open IVRM in Chrome") { _, _ ->
-                val uri = Uri.parse(Store(this).settings.ivrmUrl)
-                runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage("com.android.chrome")) }
-                    .onFailure { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-            }
+            .setPositiveButton("Open IVRM in Chrome") { _, _ -> openIvrmInChrome() }
+            .setNeutralButton("Set up shortcut") { _, _ -> setUpShortcut() }
             .setNegativeButton("Cancel", null)
             .show()
+    }
+
+    private fun openIvrmInChrome() {
+        val uri = Uri.parse(Store(this).settings.ivrmUrl)
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, uri).setPackage("com.android.chrome")) }
+            .onFailure { startActivity(Intent(Intent.ACTION_VIEW, uri)) }
+    }
+
+    /** One-time: copies the shortcut and explains how to save it as a Chrome bookmark. */
+    private fun setUpShortcut() {
+        getSystemService(ClipboardManager::class.java)
+            .setPrimaryClip(android.content.ClipData.newPlainText("${ChromeShortcut.NAME} shortcut", ChromeShortcut.BOOKMARKLET))
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Set up the ${ChromeShortcut.NAME} shortcut")
+            .setMessage(
+                "The shortcut is copied. In Chrome:\n\n" +
+                    "1. Open IVRM, tap ⋮ → the ☆ star to bookmark it.\n" +
+                    "2. Tap Edit on the bookmark (or ⋮ → Bookmarks → long-press it → Edit).\n" +
+                    "3. Name: ${ChromeShortcut.NAME}\n" +
+                    "4. URL: clear it, then paste.\n" +
+                    "5. Save.\n\n" +
+                    "From then on: on the IVRM page, type ${ChromeShortcut.NAME} in the address bar and tap the bookmark.",
+            )
+            .setPositiveButton("Open IVRM in Chrome") { _, _ -> openIvrmInChrome() }
+            .setNegativeButton("Done", null)
+            .show()
+    }
+
+    /** Copied the IVRM page in Chrome? Pick it up when you come back, once per copy. */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) return
+        val text = runCatching {
+            getSystemService(ClipboardManager::class.java).primaryClip
+                ?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()
+        }.getOrNull() ?: return
+        val store = Store(this)
+        val hash = text.hashCode()
+        if (hash == store.lastClipHash || !app.railwaytime.core.BoardParser.looksLikeBoard(text)) return
+        store.lastClipHash = hash
+        if (Importer.importText(this, text, "clipboard")) {
+            Toast.makeText(this, "Board picked up from what you copied ✓", Toast.LENGTH_SHORT).show()
+            render()
+        }
     }
 
     /** Sign-in steps and the last page text, to send over if something doesn't work. No passwords or cookies. */

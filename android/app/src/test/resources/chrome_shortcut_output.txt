@@ -1,0 +1,26 @@
+ 
+Refresh
+Mobile Crew Inquiry
+Thursday, October 22, 2026 1:34 PM ET
+CATS Information
+My current CATS information:
+Name	CREW MEMBER	
+Terminal	24 EM	
+CATS Status	AVAILABLE	
+Rest until	22 14:55	
+Current Assignment	24 EM EPEP20 EN	
+Assignment Location	Away	
+Board Position	04	
+Additional Board Information
+Employee Status 
+All
+Pos	Init	Rest	Off St	Return	
+01	JB		A0		
+02	GRS	22 1600	A0		
+03	YB		** HT	23 0559	
+Pool Lineup
+My Pool Lineup:
+A41651 21	Ordered 22 13:45	
+G81051 21	Planned 22 16:31	
+U71052 21	Planned 22 19:00	
+G83452 21	Planned 22 19:15	

@@ -147,7 +147,7 @@
             android:id="@+id/btn_chrome_update"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Update from Chrome" />
+            android:text="Update from Chrome (wdiw shortcut)" />
 
         <Button
             android:id="@+id/btn_screenshot"
@@ -165,7 +165,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:text="If sign-in won't load: open IVRM in Chrome, screenshot it, and Share → When Do I Work board. Or Select all → Copy in Chrome and tap Paste."
+            android:text="CN blocks the in-app browser, so update from Chrome: the wdiw shortcut sends the board here in one tap. Copying the IVRM page in Chrome also works — it's picked up when you come back."
             android:textColor="@color/muted"
             android:textSize="12sp" />
 

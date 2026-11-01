@@ -400,3 +400,18 @@ class RealPageOct22Test {
         assertEquals("G83452", p.myTrain!!.train.symbol)
     }
 }
+
+/** What the "wdiw" Chrome shortcut produced in Chromium on a mock IVRM page with every section collapsed. */
+class ChromeShortcutOutputTest {
+    @Test fun readsIt() {
+        val text = javaClass.getResourceAsStream("/chrome_shortcut_output.txt")!!.bufferedReader().readText()
+        val s = BoardParser.parse(text, LocalDate.of(2026, 1, 1))
+        assertEquals(4, s.cats.boardPosition)
+        assertEquals("Away", s.cats.location)
+        assertEquals(listOf("JB", "GRS", "YB"), s.board.map { it.init })
+        assertEquals(LocalDateTime.of(2026, 10, 22, 16, 0), s.board[1].restUntil)
+        assertEquals("HT", s.board[2].offStatus)
+        // Train Lineup is cut off by the shortcut, so its X99999 never reaches the pool lineup.
+        assertEquals(listOf("A41651", "G81051", "U71052", "G83452"), s.trains.map { it.symbol })
+    }
+}

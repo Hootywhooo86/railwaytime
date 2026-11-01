@@ -62,13 +62,37 @@ object Importer {
     ).show()
 }
 
+/**
+ * The Chrome shortcut ("wdiw" bookmark). Run on the IVRM page in Chrome — where CN lets you in —
+ * it reads the page (collapsed sections too), keeps the part up to Train Lineup, copies it, and
+ * hands it to this app through an intent link. Nothing goes anywhere else.
+ */
+object ChromeShortcut {
+    const val NAME = "wdiw"
+
+    const val BOOKMARKLET = "javascript:(function(){" +
+        "var B={DIV:1,P:1,TR:1,LI:1,UL:1,OL:1,TABLE:1,TBODY:1,THEAD:1,H1:1,H2:1,H3:1,H4:1,H5:1,H6:1,SECTION:1,HEADER:1,FOOTER:1,FORM:1,FIELDSET:1,LEGEND:1,DL:1,DT:1,DD:1,BR:1,HR:1,A:1,BUTTON:1}," +
+        "S={SCRIPT:1,STYLE:1,NOSCRIPT:1,TEMPLATE:1,SVG:1,SELECT:1},o=[];" +
+        "function w(n){if(n.nodeType==3){o.push(n.nodeValue.replace(/\\s+/g,' '));return}if(n.nodeType!=1)return;" +
+        "var t=n.tagName.toUpperCase();if(S[t])return;if(B[t])o.push('\\n');" +
+        "for(var c=n.firstChild;c;c=c.nextSibling)w(c);if(t=='TD'||t=='TH')o.push('\\t');if(B[t])o.push('\\n')}" +
+        "w(document.body);var x=o.join('').replace(/\\n[ \\n]*\\n/g,'\\n'),i=x.indexOf('Train Lineup');if(i>0)x=x.slice(0,i);" +
+        "if(x.indexOf('Board Position')<0){alert('Open the IVRM Mobile Crew page first, then tap wdiw.');return}" +
+        "try{navigator.clipboard.writeText(x)}catch(e){}" +
+        "location.href='intent://import#Intent;scheme=whendoiwork;package=app.railwaytime;S.board='+encodeURIComponent(x)+';end'" +
+        "})()"
+}
+
 /** Receives "Share → When Do I Work" from Chrome, Photos or the screenshot preview. */
 class ImportActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // From the Chrome shortcut: whendoiwork://import with the page text in "board".
+        val fromShortcut = intent.takeIf { it.action == Intent.ACTION_VIEW }?.let { it.getStringExtra("board") ?: it.data?.getQueryParameter("board") }
         val text = intent.getStringExtra(Intent.EXTRA_TEXT)
         val image = streamUri(intent)
         when {
+            fromShortcut != null -> finishWith(Importer.importText(this, fromShortcut, "Chrome shortcut"))
             image != null -> Importer.importImage(this, image) { finishWith(it) }
             text != null -> finishWith(Importer.importText(this, text, "shared text"))
             else -> finishWith(false)

@@ -51,6 +51,13 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- The "wdiw" Chrome shortcut hands the IVRM page over here. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="whendoiwork" android:host="import" />
+            </intent-filter>
         </activity>
         <activity android:name=".SettingsActivity" android:exported="false" android:label="Settings" />
         <activity android:name=".NapActivity" android:exported="false" android:label="Nap Stop" />

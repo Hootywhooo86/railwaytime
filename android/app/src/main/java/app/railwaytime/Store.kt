@@ -88,6 +88,11 @@ class Store(context: Context) {
         get() = runCatching { NapSound.valueOf(prefs.getString("nap_sound", null)!!) }.getOrDefault(NapSound.HORN)
         set(v) = prefs.edit().putString("nap_sound", v.name).apply()
 
+    /** Last clipboard text checked for a board (so a copy is only imported once). */
+    var lastClipHash: Int
+        get() = prefs.getInt("last_clip_hash", 0)
+        set(v) = prefs.edit().putInt("last_clip_hash", v).apply()
+
     /** Colours: a preset id, plus your own accents (0 = the preset's). */
     var themeId: String?
         get() = prefs.getString("theme_id", null)
