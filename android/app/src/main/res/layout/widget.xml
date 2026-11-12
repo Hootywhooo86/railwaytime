@@ -36,6 +36,7 @@
             android:layout_weight="1"
             android:fontFamily="sans-serif-medium"
             android:letterSpacing="0.2"
+            android:ellipsize="end"
             android:maxLines="1"
             android:text="RAILTIME"
             android:textColor="@color/teal"
@@ -91,6 +92,7 @@
             android:format12Hour="HH:mm"
             android:format24Hour="HH:mm"
             android:includeFontPadding="false"
+            android:maxLines="1"
             android:textColor="@color/orange"
             android:textSize="46sp"
             android:textStyle="bold" />

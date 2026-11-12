@@ -54,6 +54,25 @@ class SettingsActivity : Activity() {
         }
         buildColours()
 
+        // Widget text size: applies at once, no Save needed.
+        val sizeValue = findViewById<TextView>(R.id.text_size_value)
+        fun showSize() {
+            val step = store.widgetTextStep
+            sizeValue.text = when {
+                step == 0 -> "Normal"
+                step < 0 -> "${-step} smaller (${Math.round(Widget.textScale(step) * 100)}%)"
+                else -> "$step bigger (${Math.round(Widget.textScale(step) * 100)}%)"
+            }
+        }
+        fun stepSize(d: Int) {
+            store.widgetTextStep = store.widgetTextStep + d
+            showSize()
+            Widget.updateAll(this)
+        }
+        findViewById<Button>(R.id.text_smaller).setOnClickListener { stepSize(-1) }
+        findViewById<Button>(R.id.text_bigger).setOnClickListener { stepSize(+1) }
+        showSize()
+
         findViewById<Button>(R.id.btn_save).setOnClickListener {
             val zoneText = zone.text.toString().trim()
             if (zoneText.isNotEmpty() && runCatching { ZoneId.of(zoneText) }.isFailure) {

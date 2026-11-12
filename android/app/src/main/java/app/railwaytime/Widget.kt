@@ -171,6 +171,8 @@ object Widget {
         val hDp = opts.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT).takeIf { it > 0 } ?: 180
         v.setImageViewBitmap(R.id.widget_bg, Themer.widgetBackground(p, (wDp * density).toInt(), (hDp * density).toInt(), density))
 
+        applyTextSize(v, store.widgetTextStep)
+
         // Text colours.
         listOf(R.id.rail_label, R.id.lbl_pos, R.id.lbl_ahead, R.id.lbl_before, R.id.lbl_rest, R.id.lbl_next, R.id.lbl_train)
             .forEach { v.setTextColor(it, p.accent2) }
@@ -245,6 +247,27 @@ object Widget {
         v.setTextViewText(R.id.line_updated, s.updated)
         v.setTextColor(R.id.line_updated, if (s.needsAttention) p.alert else p.muted)
         return v
+    }
+
+    /** Each step is about 10% (−1 = one size smaller), set in Settings → Widget. */
+    fun textScale(step: Int): Float = Math.pow(1.1, step.toDouble()).toFloat()
+
+    /** Text sizes in widget.xml / styles.xml, scaled together so the layout keeps its shape. */
+    private val BASE_SP = mapOf(
+        R.id.rail_label to 11f, R.id.refresh_button to 14f, R.id.duty_button to 11f,
+        R.id.rail_clock to 46f, R.id.local_label to 9f, R.id.local_clock to 18f, R.id.on_duty_note to 13f,
+        R.id.lbl_pos to 9f, R.id.lbl_ahead to 9f, R.id.lbl_before to 9f, R.id.lbl_rest to 9f, R.id.lbl_next to 9f, R.id.lbl_train to 9f,
+        R.id.v_position to 26f, R.id.v_ahead to 26f, R.id.v_before to 26f,
+        R.id.v_rest to 18f, R.id.v_next to 18f,
+        R.id.sub_pos to 11f, R.id.v_ahead_sub to 11f, R.id.sub_before to 11f, R.id.v_rest_sub to 11f, R.id.v_next_sub to 11f, R.id.v_train_sub to 11f,
+        R.id.v_location to 13f, R.id.v_train to 20f,
+        R.id.v_train_prev to 10f, R.id.v_train_next1 to 10f, R.id.v_train_next2 to 10f,
+        R.id.line_updated to 10f,
+    )
+
+    private fun applyTextSize(v: RemoteViews, step: Int) {
+        val k = textScale(step)
+        BASE_SP.forEach { (id, sp) -> v.setTextViewTextSize(id, android.util.TypedValue.COMPLEX_UNIT_SP, sp * k) }
     }
 
     private fun ZoneId.shortName(): String =

@@ -9,6 +9,10 @@ import java.time.LocalDateTime
 
 /** Everything stays on the phone, in the app's private preferences. */
 class Store(context: Context) {
+    companion object {
+        val WIDGET_TEXT_STEPS = -4..3
+    }
+
     private val prefs = context.applicationContext.getSharedPreferences("railwaytime", Context.MODE_PRIVATE)
 
     /** BLOCKED: IVRM refuses the app's browser (HTTP 403) — CN's security only lets approved browsers in. */
@@ -103,6 +107,11 @@ class Store(context: Context) {
     var themeAccent2: Int
         get() = prefs.getInt("theme_accent2", 0)
         set(v) = prefs.edit().putInt("theme_accent2", v).apply()
+
+    /** Widget text size: steps from normal (−1 = one size smaller). */
+    var widgetTextStep: Int
+        get() = prefs.getInt("widget_text_step", 0).coerceIn(WIDGET_TEXT_STEPS)
+        set(v) = prefs.edit().putInt("widget_text_step", v.coerceIn(WIDGET_TEXT_STEPS)).apply()
 
     /** The device certificate you picked for CN, reused by background refreshes. */
     var certAlias: String?
