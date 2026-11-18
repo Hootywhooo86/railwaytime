@@ -22,6 +22,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- bitshift hands over call wake-ups as pixtime://bitshift?bitshift=wake&at=…&ref=… -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="pixtime" android:host="bitshift" />
+            </intent-filter>
+
         </activity>
 
         <!-- PixTime's alarm engine: rings on a loop until stopped, even when the app is closed. -->

@@ -1175,10 +1175,11 @@ checkAlarms();
 /* ================= bitshift hand-off: "called for 0300" sets a dated one-off wake-up ================= */
 // bitshift opens ./?bitshift=wake&at=<ms>&label=…&ref=<call id>. The same ref updates the same alarm,
 // so re-sending a changed call moves the wake-up instead of adding a second one.
-(function bitshiftHandoff(){
-  const q = new URLSearchParams(location.search), kind = q.get('bitshift');
+// In the Android app the same link arrives as pixtime://bitshift?… through the App plugin.
+function bitshiftHandoff(search){
+  const q = new URLSearchParams(search), kind = q.get('bitshift');
   if (!kind) return;
-  history.replaceState(null, '', location.pathname);
+  if (location.search) history.replaceState(null, '', location.pathname);
   const ref = (q.get('ref') || '').slice(0, 40);
   if (kind === 'cancel'){
     const n = alarms.length; alarms = alarms.filter(a => !(ref && a.bitshift === ref));
@@ -1193,7 +1194,14 @@ checkAlarms();
   if (a) Object.assign(a, vals); else alarms.push({ id: Date.now(), sound: 'Pixel chime', snooze: 10, vibe: true, challenge: 'none', maxSnooze: -1, ...vals });
   saveAlarms(); show('alarm');
   toast('WAKE-UP ' + hm(vals.h, vals.m) + ' · IN ' + dur(at - Date.now()).toUpperCase());
-})();
+}
+bitshiftHandoff(location.search);
+if (NATIVE){
+  const AppP = Capacitor.registerPlugin('App'), seen = new Set();
+  const take = url => { try { const u = new URL(url); if (u.protocol === 'pixtime:' && !seen.has(url)){ seen.add(url); bitshiftHandoff(u.search); } } catch {} };
+  AppP.addListener('appUrlOpen', e => take(e.url)).catch(() => {});
+  AppP.getLaunchUrl().then(r => r && r.url && take(r.url)).catch(() => {});
+}
 saveAlarms(); renderTimers(); renderBed(); banners(); renderSettings(); show(store.get('tab', 'clock'));
 if (store.get('wake', false)) setWake(true, true);
 // rAF for smooth display when visible; interval keeps alarms firing when the tab is hidden.
