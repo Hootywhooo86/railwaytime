@@ -500,6 +500,7 @@ const ymd = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())
 // Shift rotation: N days on, M days off, counted from the first day on.
 function onShift(rot, d){ const i = dayNum(d) - dayNum(parseDate(rot.start)), cycle = rot.on + rot.off; return i >= 0 && i % cycle < rot.on; }
 function dayMatches(a, d){
+  if (a.date) return ymd(d) === a.date; // one-off on a set date (a bitshift call wake-up)
   if (a.mode === 'rot' && a.rot) return onShift(a.rot, d);
   return !a.days.length || a.days.includes(d.getDay());
 }
@@ -536,7 +537,7 @@ function renderAlarms(){
   if (!alarms.length){ $('alarmList').innerHTML = '<div class="empty"><span class="px">NO ALARMS</span>Tap + to add one.</div>'; return; }
   const sorted = [...alarms].sort((a, b) => a.h * 60 + a.m - (b.h * 60 + b.m));
   $('alarmList').innerHTML = sorted.map(a => {
-    const rep = a.mode === 'rot' && a.rot ? `🔁 ${a.rot.on} on / ${a.rot.off} off` : !a.days.length ? (a.on && a.next ? (new Date(a.next).toDateString() === new Date().toDateString() ? 'Today' : 'Tomorrow') : 'Once') : a.days.length === 7 ? 'Every day' : a.days.join() === '1,2,3,4,5' ? 'Weekdays' : a.days.join() === '0,6' ? 'Weekends' : a.days.map(d => DAYNAMES[d]).join(', ');
+    const rep = a.date ? `🚂 ${DAYNAMES[parseDate(a.date).getDay()]} ${parseDate(a.date).getDate()}` : a.mode === 'rot' && a.rot ? `🔁 ${a.rot.on} on / ${a.rot.off} off` : !a.days.length ? (a.on && a.next ? (new Date(a.next).toDateString() === new Date().toDateString() ? 'Today' : 'Tomorrow') : 'Once') : a.days.length === 7 ? 'Every day' : a.days.join() === '1,2,3,4,5' ? 'Weekdays' : a.days.join() === '0,6' ? 'Weekends' : a.days.map(d => DAYNAMES[d]).join(', ');
     const chal = { math: '🧮', math3: '🧮', code: '⌨', tap: '👆' }[a.challenge];
     const skip = a.on && repeats(a) && !a.bedtime ? `<button class="skip ${a.skip ? 'on' : ''}" data-skip="${a.id}">${a.skip ? 'SKIPPING ' + DAYNAMES[new Date(a.skip).getDay()].toUpperCase() : 'SKIP NEXT'}</button>` : '';
     return `<div class="alarm ${a.on ? '' : 'off'} ${openAlarm === a.id ? 'open' : ''}" data-id="${a.id}">
@@ -613,7 +614,7 @@ $('editModal').onclick = e => { if (e.target === $('editModal')) $('editModal').
 $('eDelete').onclick = () => { alarms = alarms.filter(x => x !== editing); $('editModal').classList.remove('open'); saveAlarms(); toast('ALARM DELETED'); };
 $('eSave').onclick = () => {
   const [h, m] = ($('eTime').value || '07:00').split(':').map(Number);
-  const vals = { h, m, days: eDays, mode: eMode, rot: readRot(), label: $('eLabel').value.trim(), ...pickedSound(), snooze: +$('eSnooze').value, vibe: eVibe, on: true, snoozeUntil: 0, snoozes: 0, skip: 0, challenge: $('eChal').value, maxSnooze: +$('eMaxSnooze').value };
+  const vals = { h, m, date: '', days: eDays, mode: eMode, rot: readRot(), label: $('eLabel').value.trim(), ...pickedSound(), snooze: +$('eSnooze').value, vibe: eVibe, on: true, snoozeUntil: 0, snoozes: 0, skip: 0, challenge: $('eChal').value, maxSnooze: +$('eMaxSnooze').value };
   if (editing) Object.assign(editing, vals); else alarms.push({ id: Date.now(), ...vals });
   $('editModal').classList.remove('open'); saveAlarms();
   const a = editing || alarms[alarms.length - 1]; toast('ALARM IN ' + dur(a.next - Date.now()).toUpperCase());
@@ -1170,6 +1171,29 @@ const nextEl = document.createElement('div'); nextEl.className = 'next'; nextEl.
 alarms.forEach(a => { if (a.on && !a.next) a.next = nextFire(a); });
 // Alarms whose time passed while the app was closed: report instead of ringing late.
 checkAlarms();
+
+/* ================= bitshift hand-off: "called for 0300" sets a dated one-off wake-up ================= */
+// bitshift opens ./?bitshift=wake&at=<ms>&label=…&ref=<call id>. The same ref updates the same alarm,
+// so re-sending a changed call moves the wake-up instead of adding a second one.
+(function bitshiftHandoff(){
+  const q = new URLSearchParams(location.search), kind = q.get('bitshift');
+  if (!kind) return;
+  history.replaceState(null, '', location.pathname);
+  const ref = (q.get('ref') || '').slice(0, 40);
+  if (kind === 'cancel'){
+    const n = alarms.length; alarms = alarms.filter(a => !(ref && a.bitshift === ref));
+    saveAlarms(); show('alarm'); toast(alarms.length < n ? 'CALL WAKE-UP REMOVED' : 'NO WAKE-UP FOR THAT CALL'); return;
+  }
+  if (kind !== 'wake') return;
+  const at = Number(q.get('at')), label = (q.get('label') || 'Called').slice(0, 60);
+  if (!at || at < Date.now() + 30000){ toast('THAT WAKE-UP TIME HAS PASSED'); return; }
+  const d = new Date(at);
+  const vals = { h: d.getHours(), m: d.getMinutes(), date: ymd(d), days: [], mode: 'days', label, on: true, snoozeUntil: 0, snoozes: 0, skip: 0, bitshift: ref };
+  const a = ref && alarms.find(z => z.bitshift === ref);
+  if (a) Object.assign(a, vals); else alarms.push({ id: Date.now(), sound: 'Pixel chime', snooze: 10, vibe: true, challenge: 'none', maxSnooze: -1, ...vals });
+  saveAlarms(); show('alarm');
+  toast('WAKE-UP ' + hm(vals.h, vals.m) + ' · IN ' + dur(at - Date.now()).toUpperCase());
+})();
 saveAlarms(); renderTimers(); renderBed(); banners(); renderSettings(); show(store.get('tab', 'clock'));
 if (store.get('wake', false)) setWake(true, true);
 // rAF for smooth display when visible; interval keeps alarms firing when the tab is hidden.

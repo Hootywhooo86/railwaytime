@@ -13,6 +13,7 @@ PixTime (formerly Railway Time) is a full clock app, a pixel replacement for Goo
 - **TIMER**: several timers at once, presets, +1:00, pause/resume, and **🍅 focus cycles** (focus/break blocks with a bell at each switch).
 - **STOPWATCH**: laps with best/worst highlighting, keeps running across reloads.
 - **BEDTIME**: bedtime + wake schedule, wind-down reminder, wake-up alarm, weekly sleep log.
+- **🚂 bitshift hand-off**: bitshift opens `app/?bitshift=wake&at=<ms>&label=…&ref=<call id>` and PixTime adds a one-off alarm for that exact date ("called for 0300" → wake-up at 0130). Sending the same `ref` again moves that alarm instead of adding another; `?bitshift=cancel&ref=…` removes it.
 - **⚙ Settings**: 12/24 h, hourly station chime (7 AM to 10 PM), nightstand style and colour, sunrise glow.
 
 ## Android app (alarms ring even when it's closed)
